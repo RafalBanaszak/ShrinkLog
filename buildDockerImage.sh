@@ -1,0 +1,1 @@
+docker build . -t shrink-log/build-env

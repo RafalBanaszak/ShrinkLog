@@ -1,21 +1,20 @@
 #include <chrono>
-#include <iostream>
 
-#include "src/ShrinkLog.h"
+#include <fmt/core.h>
+
+#include "src/ProjectProcessor.h"
 
 int main() {
-    using std::cout, std::endl;
 
-    cout << "Program start" << endl;
+    fmt::print("Program start\n");
 
     auto start = std::chrono::steady_clock::now();
-    sl::ShrinkLog testObj;
+    sl::ProjectProcessor testObj;
     [[maybe_unused]] auto result = testObj.ProcessProject("../src/testproj/");
     auto end = std::chrono::steady_clock::now();
 
-    cout << endl << endl << "Elapsed time in microseconds: "
-         << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-         << " µs" << endl;
+    fmt::print("\n\nElapsed time: {}μs\n",
+               std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 
     return 0;
 }
