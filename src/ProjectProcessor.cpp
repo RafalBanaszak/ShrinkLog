@@ -4,6 +4,7 @@
 
 #include "ProjectProcessor.h"
 
+#include <algorithm>
 #include <chrono>
 #include <deque>
 #include <fstream>
@@ -42,56 +43,68 @@ namespace sl {
         auto fileContentStr = fileContentOSS.str();
 
         //find all print macros
-        auto printArguments = FindPrintMacros(fileContentStr);
+        auto printArguments = FindPrintMacros(fileContentStr); //get tag and message
         if (printArguments.empty()) {
             fmt::print(stderr, "Error during extracting print macros in the file: {} \n", absolute(pth).string());
             return InternalStatus::UnableToFindPrintArguments;
         }
 
-        GenerateHashes(printArguments);
-        GenerateDefineValue(printArguments);
-        AppendToMasterHashMap(printArguments);
+        /* DO NOT OVERTHINK THIS FOR GOD'S SAKE */
+        GeneratePartialDefineValues(printArguments); //get define value args and args sizes
+        GenerateDefineNames(printArguments); //get define names
+        AppendToMasterHashMap(printArguments); // append them to MHM
+        ReplaceTags(printArguments);
 
-        return ProjectProcessor::InternalStatus::OK;;
+        fmt::print("{}", fileContentStr);
+
+//        for (auto& val: masterHashMap){
+//            auto tmp = val.second;
+//            for (auto arg: tmp.argumentsSizes) fmt::print("{} ", arg);
+//            fmt::print("$$ {} {} {}\n", tmp.defineValueArgs, tmp.defineName, tmp.message);
+//        }
+
+//        GenerateDefineNames(printArguments);
+//        GenerateDefineValues(printArguments);
+//        AppendToMasterHashMap(printArguments);
+
+        return ProjectProcessor::InternalStatus::OK;
     }
 
-    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogMacro> &logs) noexcept {
-        //TODO: Add efficient collision detection (if possible)
-        constexpr uint64_t  hashMask = 0xFFFF'FFFF'FFFF;
-
-        std::lock_guard<std::mutex> guard(mhmMutex);
-
-        for (auto const& log : logs) {
-            masterHashMap.insert({log.hash & hashMask, fmt::format("{} {}", log.message, log.defineValue)});
+    void ProjectProcessor::ReplaceTags(std::vector<LogMacro> logs) const noexcept {
+        for (auto& log : logs) {
+            std::copy(log.defineName.cbegin(), log.defineName.cend(), log.tag.begin());
+            fmt::print("{}\n", log.tag.data());
         }
     }
 
-    void ProjectProcessor::GenerateDefineValue(std::vector<LogMacro>& logs) const noexcept {
+    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogMacro> &logs) noexcept {
+        std::lock_guard guard(mhmMutex);
+
+        for (auto const& log : logs) {
+            masterHashMap[log.message] = log;
+        }
+    }
+
+    void ProjectProcessor::GeneratePartialDefineValues(std::vector<LogMacro>& logs) const noexcept {
         //TODO: Replace std::regex by https://github.com/intel/hyperscan
-        constexpr unsigned tagHashBytesNumber = 6; // Configures how many bytes from hash should be moved into a tag
         std::smatch match;
         for (auto& log : logs) {
             std::string content{log.message};
             std::string buffer;
             buffer.reserve(48);
 
-            //convert hash to bytes
-            for (int i = 0; i < tagHashBytesNumber; ++i) {
-                unsigned char symbol = static_cast<char>((log.hash >> (8 * i)));
-                buffer.append(fmt::format("\\x{:02x}", symbol));
-            }
-
             while (regex_search(content, match, argPattern)) {
                 auto byteCnt = argToBytesCountConverter.GetByteSize(match[2], match[1]);
+                log.argumentsSizes.push_back(byteCnt);
                 buffer.append(fmt::format("\\x{:02x}", byteCnt));
 
                 content = match.suffix();
             }
-            log.defineValue = std::move(buffer);
+            log.defineValueArgs = std::move(buffer);
         }
     }
 
-    void ProjectProcessor::GenerateHashes(std::vector<LogMacro> &logs) const noexcept {
+    void ProjectProcessor::GenerateDefineNames(std::vector<LogMacro> &logs) const noexcept {
         //helper function to convert to base63 (a-z, A-Z, 0-9, _)
         auto encodeBase63 = [](XXH64_hash_t input) -> std::string {
             constexpr unsigned digitNumber = 7;
@@ -115,33 +128,30 @@ namespace sl {
         };
 
         for (auto &log : logs){
-            log.hash = XXH64(log.message.data(), log.message.length(), 42);
-            log.defineName = "#define SLOG_" + encodeBase63(log.hash);
+            auto hash = XXH3_64bits(log.message.data(), log.message.length());
+            log.defineName = "SLOG_" + encodeBase63(hash);
         }
     }
 
     std::vector<ProjectProcessor::LogMacro> ProjectProcessor::FindPrintMacros(const std::string &fileContent) const noexcept {
-        const auto fileParts = FindUncommentedParts(fileContent, minimumStringWidthToCheck);
+        const auto fileParts = FindUncommentedParts(const_cast<std::string&>(fileContent), minimumStringWidthToCheck);
 
         //TODO: Replace std::regex by https://github.com/intel/hyperscan
         std::vector<LogMacro> result;
         result.reserve(100);
         std::smatch match;
         ssize_t bufferShift = 0;
-        for (auto const& part: fileParts) {
-            //TODO: convert string_view to string only for std::regex. Remove after switch to hyperscan
-            std::string content{part};
+        for (auto & part: fileParts) {
+            //TODO: convert span to string only for std::regex. Remove after switch to hyperscan
+            std::string content{part.begin(), part.end()};
             bufferShift = 0;
             while (regex_search(content, match, logPattern)) {
-                auto logStart       = part.cbegin() + bufferShift + match.position();
+                auto logStart       = part.begin() + bufferShift + match.position();
                 auto logEnd         = logStart + match.length();
-                auto tagStart       = part.cbegin() + bufferShift + match.position(1);
+                auto tagStart       = part.begin() + bufferShift + match.position(1);
                 auto tagEnd         = tagStart + match.length(1);
-                auto messageStart   = part.cbegin() + bufferShift + match.position(2);
-                auto messageEnd     = messageStart + match.length(2);
 
-                result.push_back({{logStart, logEnd}, {tagStart, tagEnd}, {messageStart, messageEnd}});
-
+                result.push_back({ {tagStart, tagEnd}, match.str(2)});
                 bufferShift = std::distance(part.begin(), logEnd);
                 content = match.suffix();
             }
@@ -149,31 +159,30 @@ namespace sl {
         return result;
     }
 
-    std::vector<std::string_view>
-    ProjectProcessor::FindUncommentedParts(const std::string &fileContent, unsigned minimumRangeWidth) const noexcept {
-        using stringRange = std::pair<decltype(begin(std::string{})), decltype(end(std::string{}))>;
+    std::vector<string_span>
+    ProjectProcessor::FindUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth) const noexcept {
+        std::vector<string_span> result{};
 
         if (fileContent.length() < minimumRangeWidth) {
-            return std::vector<std::string_view>{};
+            return result;
         }
 
-        std::vector<stringRange> result{};
-        result.reserve(100);
+        // helper iterators to mark begin and end of the uncommented string range
+        // initially assume the whole file didn't have any parts
+        std::string::iterator partBegin, partEnd;
+        partBegin = fileContent.begin();
+        partEnd = fileContent.end();
 
         auto it = fileContent.begin() - 1; // -1 to compensate while loop start from ++it
         bool firstSlashDetected{}, inComment{}, blockComment{}, endStarDetected{};
 
-        //assume the file does not have any comments
-        result.emplace_back(fileContent.begin(), fileContent.end());
-
         // Helper function
         // Add second element to range only if the range will be valid and meet minimum width requirements
-        const auto SetRangeIfValid = [&result, minimumRangeWidth](auto it) {
-            auto rangeEnd = it - 2;
-            if (std::distance(result.crbegin()->first, rangeEnd) >= minimumRangeWidth) {
-                result.rbegin()->second = rangeEnd;
-            } else {
-                result.pop_back();
+        const auto SetRangeIfValid = [&result, &partBegin, &partEnd, minimumRangeWidth](auto it) {
+            auto rangeEnd = it - 2; // compensate next comment start characters
+            if (std::distance(partBegin, rangeEnd) >= minimumRangeWidth) {
+                partEnd = rangeEnd;
+                result.emplace_back(partBegin, partEnd);
             }
         };
 
@@ -222,14 +231,7 @@ namespace sl {
                 firstSlashDetected = true;
             }
         }
-
-        std::vector<std::string_view> retVal;
-        retVal.reserve(result.size());
-        std::transform(result.begin(), result.end(), std::back_inserter(retVal), [](const auto &elem){
-            return std::string_view(elem.first, elem.second);
-        });
-
-        return retVal;
+        return result;
     }
 
     ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const unsigned threadCount) noexcept {
@@ -271,12 +273,14 @@ namespace sl {
 
         fmt::print("Processed files: {}/{} (successfully/all)\n", processed - errorCnt, processed);
 
-        for (const auto& elem : masterHashMap) {
-            fmt::print("0x{:012x} {}\n", elem.first, elem.second);
-        }
+//        for (const auto& elem : masterHashMap) {
+//            fmt::print("0x{:012x} {}\n", elem.first, elem.second);
+//        }
 
 
         return ProjectProcessor::OutputStatus::OK;
     }
+
+
 
 } // sl

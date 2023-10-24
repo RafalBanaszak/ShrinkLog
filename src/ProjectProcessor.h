@@ -8,12 +8,15 @@
 #include <filesystem>
 #include <regex>
 #include <string>
-#include <string_view>
+#include <span>
+#include <shared_mutex>
 #include <thread>
 #include <unordered_set>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <xxhash.h>
 
 #include "ArgToBytesCount.h"
 
@@ -34,6 +37,7 @@
 
 namespace sl {
     namespace stdf = std::filesystem;
+    using string_span = std::span<std::string::value_type>;
 
     class ProjectProcessor final {
         enum class InternalStatus {
@@ -44,12 +48,12 @@ namespace sl {
         };
 
         struct LogMacro {
-            std::string_view log;           ///< View to file content. Points a whole log function - LOG(...);
-            std::string_view tag;           ///< View to file content. Points a tag - STAG_xxxxxxx
-            std::string_view message;       ///< View to file content. Points a message - "..."
-            XXH64_hash_t hash;              ///< Hash calculated from message string
+            string_span tag;           ///< View to file content. Points a tag - STAG_xxxxxxx
+            std::string message;           ///< View to file content. Points a message - "..."
             std::string defineName;         ///< String which represents new STAG string
-            std::string defineValue;        ///< String which represents value of the STAG #define macro
+            std::string defineValueArgs;    ///< String which represents value of the STAG #define macro
+            unsigned id;
+            std::vector<unsigned> argumentsSizes;
         };
 
         static std::unordered_set<std::string> fileExtensions;
@@ -58,16 +62,16 @@ namespace sl {
         static std::regex argPattern;
         static unsigned int minimumStringWidthToCheck;
 
-        std::unordered_map<XXH64_hash_t, std::string> masterHashMap;
-        std::mutex mhmMutex;
+        std::unordered_map<std::string, LogMacro> masterHashMap;
+        std::shared_mutex mhmMutex;
         ArgToBytesCount argToBytesCountConverter;
 
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
         void AppendToMasterHashMap(const std::vector<LogMacro> &logs) noexcept;
-        void GenerateDefineValue(std::vector<LogMacro>& logs) const noexcept;
-        void GenerateHashes(std::vector<LogMacro>& logs) const noexcept;
+        void GeneratePartialDefineValues(std::vector<LogMacro>& logs) const noexcept;
+        void GenerateDefineNames(std::vector<LogMacro>& logs) const noexcept;
         [[nodiscard]] std::vector<LogMacro> FindPrintMacros(const std::string &fileContent) const noexcept;
-        [[nodiscard]] std::vector<std::string_view> FindUncommentedParts(const std::string &fileContent, unsigned minimumRangeWidth = 1) const noexcept;
+        [[nodiscard]] std::vector<string_span> FindUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) const noexcept;
 
         [[nodiscard]] std::string ReplaceFileHashBlock(std::string_view) const noexcept;
     public:
@@ -78,6 +82,8 @@ namespace sl {
         };
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path&, const unsigned threadCount = 1) noexcept;
+
+        void ReplaceTags(std::vector<LogMacro> logs) const noexcept;
     };
 
 } // sl
