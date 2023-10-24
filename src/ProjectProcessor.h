@@ -27,9 +27,9 @@
  * - It iterates over every file in the project and calls ProcessFile (use many workers!)
  * - For every file:
  *      - find all print macros and generate hashes
- *      - generate new defineName block
- *      - find and replace existing defineName block
- *      - save existing defineName block to MasterMap
+ *      - generate new stagNewName block
+ *      - find and replace existing stagNewName block
+ *      - save existing stagNewName block to MasterMap
  *      - make it thread safe!
  *      (proposition: store MasterMap in memory and prepare
  *      a thread safe interface to append new hashes)
@@ -37,7 +37,8 @@
 
 namespace sl {
     namespace stdf = std::filesystem;
-    using string_span = std::span<std::string::value_type>;
+    // use a span instead the string_view. The SV doesn't allow to modify content it points to
+    using StringSpan = std::span<std::string::value_type>;
 
     class ProjectProcessor final {
         enum class InternalStatus {
@@ -47,13 +48,13 @@ namespace sl {
             MasterHashMapCollisionDetected,
         };
 
-        struct LogMacro {
-            string_span tag;           ///< View to file content. Points a tag - STAG_xxxxxxx
-            std::string message;           ///< View to file content. Points a message - "..."
-            std::string defineName;         ///< String which represents new STAG string
-            std::string defineValueArgs;    ///< String which represents value of the STAG #define macro
-            unsigned id;
-            std::vector<unsigned> argumentsSizes;
+        struct LogFunction {
+            StringSpan stagView;          ///< View to a specific part of a string which holds file content. Points a stagView - SLOG_xxxxxxx
+            std::string message;          ///< Contains a log message
+            std::string stagNewName;      ///< New STAG name e.g. SLOG_7aYZVYc
+            std::string stagEncArgs;      ///< Encoded arguments list e.g. "\0x01\0x04..."
+            unsigned stagId;              ///< Identifies LOG message, a natural number
+            std::vector<unsigned> argSzs; ///< List of argument sizes in integer format
         };
 
         static std::unordered_set<std::string> fileExtensions;
@@ -62,16 +63,16 @@ namespace sl {
         static std::regex argPattern;
         static unsigned int minimumStringWidthToCheck;
 
-        std::unordered_map<std::string, LogMacro> masterHashMap;
+        std::unordered_map<std::string, LogFunction> masterHashMap;
         std::shared_mutex mhmMutex;
         ArgToBytesCount argToBytesCountConverter;
 
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
-        void AppendToMasterHashMap(const std::vector<LogMacro> &logs) noexcept;
-        void GeneratePartialDefineValues(std::vector<LogMacro>& logs) const noexcept;
-        void GenerateDefineNames(std::vector<LogMacro>& logs) const noexcept;
-        [[nodiscard]] std::vector<LogMacro> FindPrintMacros(const std::string &fileContent) const noexcept;
-        [[nodiscard]] std::vector<string_span> FindUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) const noexcept;
+        [[nodiscard]] std::vector<LogFunction> FindPrints(const std::string &fileContent) const noexcept;
+        [[nodiscard]] std::vector<StringSpan> FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) const noexcept;
+        void ExtractArguments(std::vector<LogFunction>& logs) const noexcept;
+        void GenerateTagNames(std::vector<LogFunction>& logs) const noexcept;
+        void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;
 
         [[nodiscard]] std::string ReplaceFileHashBlock(std::string_view) const noexcept;
     public:
@@ -83,7 +84,7 @@ namespace sl {
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path&, const unsigned threadCount = 1) noexcept;
 
-        void ReplaceTags(std::vector<LogMacro> logs) const noexcept;
+        void ReplaceTags(std::vector<LogFunction> logs) const noexcept;
     };
 
 } // sl

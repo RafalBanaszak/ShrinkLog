@@ -19,7 +19,7 @@ namespace sl {
     //static variables
     std::unordered_set<std::string> ProjectProcessor::fileExtensions = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp",
                                                                         ".hxx"};
-    //LOG\((STAG_[a-zA-Z0-9_]{7})  -- log function and tag
+    //LOG\((STAG_[a-zA-Z0-9_]{7})  -- log function and stagView
     //[\s\\\n]*,[\s\\\n]            -- comma with 0-n space/backslash/newline before and/or after
     //(["](?:[^"\\\n]|\\.|\\\n)*["])  -- C string including new lines and escaped quotes
     //[^;]*;                        -- any characters except semicolon until semicolon
@@ -42,42 +42,29 @@ namespace sl {
         fileContentOSS << fileReader.rdbuf();
         auto fileContentStr = fileContentOSS.str();
 
-        //find all print macros
-        auto printArguments = FindPrintMacros(fileContentStr); //get tag and message
+        auto printArguments = FindPrints(fileContentStr); //get stagView and message
         if (printArguments.empty()) {
             fmt::print(stderr, "Error during extracting print macros in the file: {} \n", absolute(pth).string());
             return InternalStatus::UnableToFindPrintArguments;
         }
 
         /* DO NOT OVERTHINK THIS FOR GOD'S SAKE */
-        GeneratePartialDefineValues(printArguments); //get define value args and args sizes
-        GenerateDefineNames(printArguments); //get define names
-        AppendToMasterHashMap(printArguments); // append them to MHM
+        ExtractArguments(printArguments);
+        GenerateTagNames(printArguments);
+        AppendToMasterHashMap(printArguments);
         ReplaceTags(printArguments);
 
-        fmt::print("{}", fileContentStr);
-
-//        for (auto& val: masterHashMap){
-//            auto tmp = val.second;
-//            for (auto arg: tmp.argumentsSizes) fmt::print("{} ", arg);
-//            fmt::print("$$ {} {} {}\n", tmp.defineValueArgs, tmp.defineName, tmp.message);
-//        }
-
-//        GenerateDefineNames(printArguments);
-//        GenerateDefineValues(printArguments);
-//        AppendToMasterHashMap(printArguments);
 
         return ProjectProcessor::InternalStatus::OK;
     }
 
-    void ProjectProcessor::ReplaceTags(std::vector<LogMacro> logs) const noexcept {
+    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> logs) const noexcept {
         for (auto& log : logs) {
-            std::copy(log.defineName.cbegin(), log.defineName.cend(), log.tag.begin());
-            fmt::print("{}\n", log.tag.data());
+            std::copy(log.stagNewName.cbegin(), log.stagNewName.cend(), log.stagView.begin());
         }
     }
 
-    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogMacro> &logs) noexcept {
+    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept {
         std::lock_guard guard(mhmMutex);
 
         for (auto const& log : logs) {
@@ -85,7 +72,7 @@ namespace sl {
         }
     }
 
-    void ProjectProcessor::GeneratePartialDefineValues(std::vector<LogMacro>& logs) const noexcept {
+    void ProjectProcessor::ExtractArguments(std::vector<LogFunction>& logs) const noexcept {
         //TODO: Replace std::regex by https://github.com/intel/hyperscan
         std::smatch match;
         for (auto& log : logs) {
@@ -95,16 +82,16 @@ namespace sl {
 
             while (regex_search(content, match, argPattern)) {
                 auto byteCnt = argToBytesCountConverter.GetByteSize(match[2], match[1]);
-                log.argumentsSizes.push_back(byteCnt);
+                log.argSzs.push_back(byteCnt);
                 buffer.append(fmt::format("\\x{:02x}", byteCnt));
 
                 content = match.suffix();
             }
-            log.defineValueArgs = std::move(buffer);
+            log.stagEncArgs = std::move(buffer);
         }
     }
 
-    void ProjectProcessor::GenerateDefineNames(std::vector<LogMacro> &logs) const noexcept {
+    void ProjectProcessor::GenerateTagNames(std::vector<LogFunction> &logs) const noexcept {
         //helper function to convert to base63 (a-z, A-Z, 0-9, _)
         auto encodeBase63 = [](XXH64_hash_t input) -> std::string {
             constexpr unsigned digitNumber = 7;
@@ -129,15 +116,15 @@ namespace sl {
 
         for (auto &log : logs){
             auto hash = XXH3_64bits(log.message.data(), log.message.length());
-            log.defineName = "SLOG_" + encodeBase63(hash);
+            log.stagNewName = "SLOG_" + encodeBase63(hash);
         }
     }
 
-    std::vector<ProjectProcessor::LogMacro> ProjectProcessor::FindPrintMacros(const std::string &fileContent) const noexcept {
-        const auto fileParts = FindUncommentedParts(const_cast<std::string&>(fileContent), minimumStringWidthToCheck);
+    std::vector<ProjectProcessor::LogFunction> ProjectProcessor::FindPrints(const std::string &fileContent) const noexcept {
+        const auto fileParts = FilterUncommentedParts(const_cast<std::string &>(fileContent), minimumStringWidthToCheck);
 
         //TODO: Replace std::regex by https://github.com/intel/hyperscan
-        std::vector<LogMacro> result;
+        std::vector<LogFunction> result;
         result.reserve(100);
         std::smatch match;
         ssize_t bufferShift = 0;
@@ -159,9 +146,9 @@ namespace sl {
         return result;
     }
 
-    std::vector<string_span>
-    ProjectProcessor::FindUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth) const noexcept {
-        std::vector<string_span> result{};
+    std::vector<StringSpan>
+    ProjectProcessor::FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth) const noexcept {
+        std::vector<StringSpan> result{};
 
         if (fileContent.length() < minimumRangeWidth) {
             return result;
