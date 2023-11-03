@@ -67,68 +67,6 @@ namespace sl {
         return ProjectProcessor::InternalStatus::OK;
     }
 
-    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> logs) const noexcept {
-        for (auto& log : logs) {
-            std::copy(log.stagNewName.cbegin(), log.stagNewName.cend(), log.stagView.begin());
-        }
-    }
-
-    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept {
-        std::lock_guard guard(mhmMutex);
-
-        for (auto const& log : logs) {
-            masterHashMap[log.message] = log;
-        }
-    }
-
-    void ProjectProcessor::ExtractArguments(std::vector<LogFunction>& logs) const noexcept {
-        //TODO: Replace std::regex by https://github.com/intel/hyperscan
-        std::smatch match;
-        for (auto& log : logs) {
-            std::string content{log.message};
-            std::string buffer;
-            buffer.reserve(48);
-
-            while (regex_search(content, match, argPattern)) {
-                auto byteCnt = argToBytesCountConverter.GetByteSize(match[2], match[1]);
-                log.argSzs.push_back(byteCnt);
-                buffer.append(fmt::format("\\x{:02x}", byteCnt));
-
-                content = match.suffix();
-            }
-            log.stagEncArgs = std::move(buffer);
-        }
-    }
-
-    void ProjectProcessor::GenerateTagNames(std::vector<LogFunction> &logs) const noexcept {
-        //helper function to convert to base63 (a-z, A-Z, 0-9, _)
-        auto encodeBase63 = [](XXH64_hash_t input) -> std::string {
-            constexpr unsigned digitNumber = 7;
-            std::string result;
-            result.reserve(digitNumber);
-            for (int i = 0; i < digitNumber; ++i) {
-                char symbol = input % 63;
-                input /= 63;
-                if (symbol < 10) {
-                    symbol += 48;
-                } else if (symbol < 10 + 26) {
-                    symbol += 65 - 10;
-                } else if (symbol < 10 + 26 + 26) {
-                    symbol += 97 - (10 + 26);
-                } else {
-                    symbol = '_';
-                }
-                result.push_back(symbol);
-            }
-            return result;
-        };
-
-        for (auto &log : logs){
-            auto hash = XXH3_64bits(log.message.data(), log.message.length());
-            log.stagNewName = "SLOG_" + encodeBase63(hash);
-        }
-    }
-
     std::vector<ProjectProcessor::LogFunction> ProjectProcessor::FindPrints(const std::string &fileContent) const noexcept {
         const auto fileParts = FilterUncommentedParts(const_cast<std::string &>(fileContent), minimumStringWidthToCheck);
 
@@ -198,7 +136,7 @@ namespace sl {
                     endStarDetected = false;
                 }
             }
-            //level 2: match single line comment end or first character of block comment end
+                //level 2: match single line comment end or first character of block comment end
             else if (inComment) {
                 if (blockComment) {
                     if (*it == '*') {
@@ -211,7 +149,7 @@ namespace sl {
                     result.emplace_back(it + 1, fileContent.end());
                 }
             }
-            // level 1: match second comment start character (/ or *)
+                // level 1: match second comment start character (/ or *)
             else if (firstSlashDetected) {
                 if (*it == '*') {
                     inComment = true;
@@ -222,7 +160,7 @@ namespace sl {
                     SetRangeIfValid(it);
                 } else { firstSlashDetected = false; }
             }
-            // level 0: check if character is a slash
+                // level 0: check if character is a slash
             else if (*it == '/') {
                 firstSlashDetected = true;
             }
@@ -230,53 +168,66 @@ namespace sl {
         return result;
     }
 
-    ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const unsigned threadCount) noexcept {
-        // list all files with matching extensions
-        if (not is_directory(pth)) {
-            fmt::print(stderr, "Project file must be valid path to directory.\n");
-            try {
-                fmt::print(stderr, "Passed path: {}\n", pth.string());
+    void ProjectProcessor::ExtractArguments(std::vector<LogFunction>& logs) const noexcept {
+        //TODO: Replace std::regex by https://github.com/intel/hyperscan
+        std::smatch match;
+        for (auto& log : logs) {
+            std::string content{log.message};
+            std::string buffer;
+            buffer.reserve(48);
+
+            while (regex_search(content, match, argPattern)) {
+                auto byteCnt = argToBytesCountConverter.GetByteSize(match[2], match[1]);
+                log.argSzs.push_back(byteCnt);
+                buffer.append(fmt::format("\\x{:02x}", byteCnt));
+
+                content = match.suffix();
             }
-            catch (...) {
-                fmt::print(stderr, "(Unable to print the path)\n");
-                return OutputStatus::WrongProjectPath;
+            log.stagEncArgs = std::move(buffer);
+        }
+    }
+
+    void ProjectProcessor::GenerateTagNames(std::vector<LogFunction> &logs) const noexcept {
+        //helper function to convert to base63 (a-z, A-Z, 0-9, _)
+        auto encodeBase63 = [](XXH64_hash_t input) -> std::string {
+            constexpr unsigned digitNumber = 7;
+            std::string result;
+            result.reserve(digitNumber);
+            for (int i = 0; i < digitNumber; ++i) {
+                char symbol = input % 63;
+                input /= 63;
+                if (symbol < 10) {
+                    symbol += 48;
+                } else if (symbol < 10 + 26) {
+                    symbol += 65 - 10;
+                } else if (symbol < 10 + 26 + 26) {
+                    symbol += 97 - (10 + 26);
+                } else {
+                    symbol = '_';
+                }
+                result.push_back(symbol);
             }
+            return result;
+        };
+
+        for (auto &log : logs){
+            auto hash = XXH3_64bits(log.message.data(), log.message.length());
+            log.stagNewName = "SLOG_" + encodeBase63(hash);
         }
+    }
 
-        std::deque<stdf::path> filteredFileNames{};
-        for (const auto &file: stdf::directory_iterator(pth)) {
-            auto extension = file.path().extension().string();
-            if (fileExtensions.contains(extension)) {
-                filteredFileNames.emplace_back(file);
-            }
+    void ProjectProcessor::AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept {
+        std::lock_guard guard(mhmMutex);
+
+        for (auto const& log : logs) {
+            masterHashMap[log.message] = log;
         }
+    }
 
-        // process project files
-        if (filteredFileNames.empty()) {
-            fmt::print(stderr, "No files with matching extension in provided directory\n");
-            return OutputStatus::EmptyProjectDirectory;
+    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> logs) const noexcept {
+        for (auto& log : logs) {
+            std::copy(log.stagNewName.cbegin(), log.stagNewName.cend(), log.stagView.begin());
         }
-
-        std::atomic<unsigned> processed = 0, errorCnt = 0;
-        ThreadPool<stdf::path> threadPool{threadCount, [this, &errorCnt, &processed](const stdf::path& path){
-            auto result = ProcessFile(path);
-            if (result != InternalStatus::OK) { errorCnt.fetch_add(1, std::memory_order_relaxed); }
-            processed.fetch_add(1, std::memory_order_relaxed);
-        }};
-
-
-        for (const auto &file: filteredFileNames) {
-            threadPool.AddJob(file);
-        }
-        threadPool.FinishAndTerminate();
-
-        fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
-
-        AssignIDs();
-        (void)GenerateMapFile(pth);
-        (void)GenerateHeaderFile(pth);
-
-        return ProjectProcessor::OutputStatus::OK;
     }
 
     void ProjectProcessor::AssignIDs() noexcept {
@@ -355,4 +306,54 @@ namespace sl {
 
         return InternalStatus::OK;
     }
+
+    ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const unsigned threadCount) noexcept {
+        // list all files with matching extensions
+        if (not is_directory(pth)) {
+            fmt::print(stderr, "Project file must be valid path to directory.\n");
+            try {
+                fmt::print(stderr, "Passed path: {}\n", pth.string());
+            }
+            catch (...) {
+                fmt::print(stderr, "(Unable to print the path)\n");
+                return OutputStatus::WrongProjectPath;
+            }
+        }
+
+        std::deque<stdf::path> filteredFileNames{};
+        for (const auto &file: stdf::directory_iterator(pth)) {
+            auto extension = file.path().extension().string();
+            if (fileExtensions.contains(extension)) {
+                filteredFileNames.emplace_back(file);
+            }
+        }
+
+        // process project files
+        if (filteredFileNames.empty()) {
+            fmt::print(stderr, "No files with matching extension in provided directory\n");
+            return OutputStatus::EmptyProjectDirectory;
+        }
+
+        std::atomic<unsigned> processed = 0, errorCnt = 0;
+        ThreadPool<stdf::path> threadPool{threadCount, [this, &errorCnt, &processed](const stdf::path& path){
+            auto result = ProcessFile(path);
+            if (result != InternalStatus::OK) { errorCnt.fetch_add(1, std::memory_order_relaxed); }
+            processed.fetch_add(1, std::memory_order_relaxed);
+        }};
+
+
+        for (const auto &file: filteredFileNames) {
+            threadPool.AddJob(file);
+        }
+        threadPool.FinishAndTerminate();
+
+        fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
+
+        AssignIDs();
+        (void)GenerateMapFile(pth);
+        (void)GenerateHeaderFile(pth);
+
+        return ProjectProcessor::OutputStatus::OK;
+    }
+
 } // sl
