@@ -10,11 +10,11 @@ int main() {
 
     auto start = std::chrono::steady_clock::now();
     sl::ProjectProcessor testObj;
-    [[maybe_unused]] auto result = testObj.ProcessProject("../src/testproj/");
+    [[maybe_unused]] auto result = testObj.ProcessProject("../src/testproj/", 6);
     auto end = std::chrono::steady_clock::now();
 
-    fmt::print("\n\nElapsed time: {}μs\n",
-               std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
+    fmt::print("\n\nElapsed time: {}ms\n",
+               std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
     return 0;
 }
@@ -31,7 +31,7 @@ int main() {
  *      - no ->  generate define name and define value (concat number and the previously calculated argument list)
  *          put them into mhm
  * - every thread updates the LOG defines
- * - when all threads finished their job:
+ * - when all pool finished their job:
  *      - get map size and calculate required number of bytes to represent a log
  *      - generate log numbers
  *      - generate the define map
@@ -41,5 +41,12 @@ int main() {
  * - to generate master define file we require: define_names, partial_define_values, log_ids
  * - to generate decoder file we require: log_ids, log_message, partial_define_values
  * -
+ *
+ *
+ *
+ * Multithreading plan
+ * YOU AGAIN OVERTHINK THIS, JUST CREATE A THREAD FOR A FILE
+ * MAYBE LIMIT THE AMOUNT OF THREADS WORKING SIMULTANEOUSLY THAT'S ALL
+ *
  *
  */

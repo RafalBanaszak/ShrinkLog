@@ -11,7 +11,9 @@ add_executable(ShrinkLog main.cpp
         src/IntfMasterMap.cpp
         src/IntfMasterMap.h
         src/ArgToBytesCount.cpp
-        src/ArgToBytesCount.h)
+        src/ArgToBytesCount.h
+        src/ThreadPool.cpp
+        src/ThreadPool.h)
 
 target_include_directories(ShrinkLog PRIVATE /usr/include/)
 target_link_libraries(ShrinkLog PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9)

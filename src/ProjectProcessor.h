@@ -20,21 +20,6 @@
 
 #include "ArgToBytesCount.h"
 
-//TODO: Remove this
-/*
- * Control flow:
- * - ProcessProject gets path to project
- * - It iterates over every file in the project and calls ProcessFile (use many workers!)
- * - For every file:
- *      - find all print macros and generate hashes
- *      - generate new stagNewName block
- *      - find and replace existing stagNewName block
- *      - save existing stagNewName block to MasterMap
- *      - make it thread safe!
- *      (proposition: store MasterMap in memory and prepare
- *      a thread safe interface to append new hashes)
- */
-
 namespace sl {
     namespace stdf = std::filesystem;
     // use a span instead the string_view. The SV doesn't allow to modify content it points to
@@ -45,7 +30,7 @@ namespace sl {
             OK = 0,
             UnableToOpenFile,
             UnableToFindPrintArguments,
-            MasterHashMapCollisionDetected,
+            FileGenerationError
         };
 
         struct LogFunction {
@@ -63,6 +48,7 @@ namespace sl {
         static std::regex argPattern;
         static unsigned int minimumStringWidthToCheck;
 
+        unsigned maxId;
         std::unordered_map<std::string, LogFunction> masterHashMap;
         std::shared_mutex mhmMutex;
         ArgToBytesCount argToBytesCountConverter;
@@ -73,8 +59,11 @@ namespace sl {
         void ExtractArguments(std::vector<LogFunction>& logs) const noexcept;
         void GenerateTagNames(std::vector<LogFunction>& logs) const noexcept;
         void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;
+        void ReplaceTags(std::vector<LogFunction> logs) const noexcept;
+        void AssignIDs() noexcept;
+        [[nodiscard]] InternalStatus GenerateMapFile(stdf::path pth) const noexcept;
+        [[nodiscard]] InternalStatus GenerateHeaderFile(stdf::path pth) const noexcept;
 
-        [[nodiscard]] std::string ReplaceFileHashBlock(std::string_view) const noexcept;
     public:
         enum class OutputStatus {
             OK = 0,
@@ -83,8 +72,6 @@ namespace sl {
         };
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path&, const unsigned threadCount = 1) noexcept;
-
-        void ReplaceTags(std::vector<LogFunction> logs) const noexcept;
     };
 
 } // sl

@@ -4,6 +4,7 @@
 
 #include "ProjectProcessor.h"
 
+#include <atomic>
 #include <algorithm>
 #include <chrono>
 #include <deque>
@@ -12,8 +13,11 @@
 #include <sstream>
 
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <hs/hs.h>
 #include <xxhash.h>
+
+#include "ThreadPool.h"
 
 namespace sl {
     //static variables
@@ -23,23 +27,22 @@ namespace sl {
     //[\s\\\n]*,[\s\\\n]            -- comma with 0-n space/backslash/newline before and/or after
     //(["](?:[^"\\\n]|\\.|\\\n)*["])  -- C string including new lines and escaped quotes
     //[^;]*;                        -- any characters except semicolon until semicolon
-    std::regex ProjectProcessor::logPattern{R"###(LOG\((STAG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*(["](?:[^"\\\n]|\\.|\\\n)*["])[^;]*;)###"};
+    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*(["](?:[^"\\\n]|\\.|\\\n)*["])[^;]*;)###"};
     std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###"};
 
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
 
     ProjectProcessor::InternalStatus ProjectProcessor::ProcessFile(const stdf::path &pth) noexcept {
         //TODO: Replace the file loading method to mmap style (faster)
-        //open file and load it to string
         using std::fstream;
-        fstream fileReader{pth, std::ios::in};
-        if (not fileReader.is_open()) {
+        fstream fileStream{pth, std::ios::in | std::ios::out};
+        if (not fileStream.is_open()) {
             fmt::print(stderr, "Unable to open the file: {}\n", absolute(pth).string());
             return InternalStatus::UnableToOpenFile;
         }
 
         std::ostringstream fileContentOSS{};
-        fileContentOSS << fileReader.rdbuf();
+        fileContentOSS << fileStream.rdbuf();
         auto fileContentStr = fileContentOSS.str();
 
         auto printArguments = FindPrints(fileContentStr); //get stagView and message
@@ -48,12 +51,18 @@ namespace sl {
             return InternalStatus::UnableToFindPrintArguments;
         }
 
-        /* DO NOT OVERTHINK THIS FOR GOD'S SAKE */
         ExtractArguments(printArguments);
         GenerateTagNames(printArguments);
         AppendToMasterHashMap(printArguments);
         ReplaceTags(printArguments);
 
+        try{
+            fileStream.seekg(0, std::ios::beg);
+            fileStream << fileContentStr;
+            fileStream.close();
+        } catch (const std::exception& e) {
+            fmt::print(stderr, "Unable to save the file.\n{}\n{}", pth.string(), e.what());
+        }
 
         return ProjectProcessor::InternalStatus::OK;
     }
@@ -243,31 +252,107 @@ namespace sl {
         }
 
         // process project files
-        // TODO: add multithreading option; remove the (void)threadCount below
-        (void) threadCount;
-
         if (filteredFileNames.empty()) {
             fmt::print(stderr, "No files with matching extension in provided directory\n");
             return OutputStatus::EmptyProjectDirectory;
         }
 
-        unsigned processed = 0, errorCnt = 0;
+        std::atomic<unsigned> processed = 0, errorCnt = 0;
+        ThreadPool<stdf::path> threadPool{threadCount, [this, &errorCnt, &processed](const stdf::path& path){
+            auto result = ProcessFile(path);
+            if (result != InternalStatus::OK) { errorCnt.fetch_add(1, std::memory_order_relaxed); }
+            processed.fetch_add(1, std::memory_order_relaxed);
+        }};
+
+
         for (const auto &file: filteredFileNames) {
-            auto result = ProcessFile(file);
-            if (result != InternalStatus::OK) { ++errorCnt; }
-            ++processed;
+            threadPool.AddJob(file);
         }
+        threadPool.FinishAndTerminate();
 
-        fmt::print("Processed files: {}/{} (successfully/all)\n", processed - errorCnt, processed);
+        fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
 
-//        for (const auto& elem : masterHashMap) {
-//            fmt::print("0x{:012x} {}\n", elem.first, elem.second);
-//        }
-
+        AssignIDs();
+        (void)GenerateMapFile(pth);
+        (void)GenerateHeaderFile(pth);
 
         return ProjectProcessor::OutputStatus::OK;
     }
 
+    void ProjectProcessor::AssignIDs() noexcept {
+        unsigned id = 0;
+        for (auto& mapEntry : masterHashMap) {
+            mapEntry.second.stagId = ++id;
+        }
+        maxId = id;
+    }
 
+    ProjectProcessor::InternalStatus ProjectProcessor::GenerateMapFile(stdf::path pth) const noexcept {
+        try {
+            pth /= "slog";
+            stdf::create_directory(pth);
+            std::ofstream fileHandler(pth / "map.slog", std::ios::trunc | std::ios::out);
 
+            for (const auto& mapEntry : masterHashMap) {
+                auto log = mapEntry.second;
+                fileHandler << fmt::format("{};{};{}\n", log.stagId, fmt::join(log.argSzs, " "), log.message);
+            }
+
+        } catch (const std::exception& e) {
+            fmt::print(stderr, "Map file generating error\n{}", e.what());
+            return InternalStatus::FileGenerationError;
+        }
+
+        return InternalStatus::OK;
+    }
+
+    ProjectProcessor::InternalStatus ProjectProcessor::GenerateHeaderFile(stdf::path pth) const noexcept {
+        try {
+            pth /= "slog";
+            stdf::create_directory(pth);
+            std::ofstream fileHandler(pth / "tags.h", std::ios::trunc | std::ios::out);
+
+            unsigned byteCnt;
+            if (maxId < 0xFFU) {
+                byteCnt = 1;
+            } else if (maxId < 0xFFFFU) {
+                byteCnt = 2;
+            } else {
+                byteCnt = 3;
+            }
+            fileHandler << fmt::format("#define SLOG_ID_BYTE_CNT {}\n", byteCnt);
+
+            for (const auto &mapEntry: masterHashMap) {
+                auto log = mapEntry.second;
+                switch (byteCnt) {
+                    case 1:
+                        fileHandler << fmt::format("#define {} \"\\x{:02x}{}\"\n",
+                                                   log.stagNewName,
+                                                   log.stagId,
+                                                   log.stagEncArgs);
+                        break;
+                    case 2:
+                        fileHandler << fmt::format("#define {} \"\\x{:02x}\\x{:02x}{}\"\n",
+                                                   log.stagNewName,
+                                                   (log.stagId >> 8) & 0xFF,
+                                                   log.stagId & 0xFF,
+                                                   log.stagEncArgs);
+                        break;
+                    case 3:
+                        fileHandler << fmt::format("#define {} \"\\x{:02x}\\x{:02x}\\x{:02x}{}\"\n",
+                                                   log.stagNewName,
+                                                   (log.stagId >> 16) & 0xFF,
+                                                   (log.stagId >> 8) & 0xFF,
+                                                   (log.stagId) & 0xFF,
+                                                   log.stagEncArgs);
+                        break;
+                }
+            }
+        } catch (const std::exception &e) {
+            fmt::print(stderr, "Map file generating error\n{}", e.what());
+            return InternalStatus::FileGenerationError;
+        }
+
+        return InternalStatus::OK;
+    }
 } // sl
