@@ -20,10 +20,9 @@
 #include "ThreadPool.h"
 
 namespace sl {
-    //static variables
     std::unordered_set<std::string> ProjectProcessor::fileExtensions = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp",
                                                                         ".hxx"};
-    //LOG\((STAG_[a-zA-Z0-9_]{7})  -- log function and stagView
+    //LOG\((SLOG_[a-zA-Z0-9_]{7})  -- log function and stagView
     //[\s\\\n]*,[\s\\\n]            -- comma with 0-n space/backslash/newline before and/or after
     //(["](?:[^"\\\n]|\\.|\\\n)*["])  -- C string including new lines and escaped quotes
     //[^;]*;                        -- any characters except semicolon until semicolon
@@ -271,7 +270,11 @@ namespace sl {
             } else {
                 byteCnt = 3;
             }
+
             fileHandler << fmt::format("#define SLOG_ID_BYTE_CNT {}\n", byteCnt);
+            fileHandler << "#define SLOG_INT_B_SIZE 4\n";
+            fileHandler << "/* #define SLOG_ENABLE_8B */\n";
+            fileHandler << "/* #define SLOG_BINARY_MODE */\n";
 
             for (const auto &mapEntry: masterHashMap) {
                 auto log = mapEntry.second;
@@ -321,7 +324,13 @@ namespace sl {
         }
 
         std::deque<stdf::path> filteredFileNames{};
-        for (const auto &file: stdf::directory_iterator(pth)) {
+        auto dirIterator = stdf::recursive_directory_iterator(pth);
+        for (const auto &file: dirIterator) {
+            // TODO: This IF can be really slow. Check performance and fix if necessary
+            [[unlikely]] if (file.path().parent_path().filename() == "slog") {
+                dirIterator.disable_recursion_pending();
+                continue;
+            }
             auto extension = file.path().extension().string();
             if (fileExtensions.contains(extension)) {
                 filteredFileNames.emplace_back(file);
