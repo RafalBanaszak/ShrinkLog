@@ -3,16 +3,50 @@
 //
 
 #include "ArgToBytesCount.h"
+#include "LoadConfig.h"
 
+#include <array>
 #include <limits>
 #include <stdexcept>
 
 #include <fmt/core.h>
 
 namespace sl {
-
-    ArgToBytesCount::ArgToBytesCount() noexcept {
+    ArgToBytesCount::ArgToBytesCount(const std::filesystem::path& pth) {
         //TODO: Implement configuration loading
+        auto typesSizeOpt = LoadConfig::LoadTypesSize(pth);
+        if(!typesSizeOpt.has_value()){
+            throw ConfigLoadError{};
+        }
+        auto typesSize = typesSizeOpt.value();
+
+        std::array obligatoryFields = {
+          "short",
+          "int",
+          "long",
+          "long long",
+          "double",
+          "long double",
+          "wchar_t",
+          "intmax_t",
+          "size_t",
+          "ptrdiff_t",
+          "void*",
+        };
+        std::array allowedValues = {
+          1, 2, 4, 8
+        };
+
+        for (const auto& field: obligatoryFields) {
+            auto it = typesSize.find(field);
+            if(it == typesSize.end()) {
+                throw ConfigLoadError{};
+            }
+
+            if(std::find(allowedValues.begin(), allowedValues.end(), it->second) == allowedValues.end()) {
+                throw ConfigLoadError{};
+            }
+        }
 
         argToByteMapBasic = {
           {stringToHash("c"), sizeof(char)},

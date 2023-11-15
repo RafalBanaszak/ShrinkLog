@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include <filesystem>
 #include <map>
 #include <string>
 
@@ -23,9 +24,20 @@ class ArgToBytesCount {
 
 public:
     ArgToBytesCount() noexcept;
+    explicit ArgToBytesCount(const std::filesystem::path& pth);
     [[nodiscard]] unsigned GetByteSize(std::string const& base, std::string const& extension) const noexcept;
 
+    class ConfigLoadError : public std::exception {
+        std::string message = "Unable to load the configuration file with types size.";
+    public:
+        [[nodiscard]] const char* what () const noexcept override {
+            return message.c_str();
+        }
+    };
+
 };
+
+
 
 }
 

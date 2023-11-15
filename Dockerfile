@@ -9,6 +9,7 @@ RUN set -ex; \
         libhyperscan-dev \
         libxxhash-dev \
         libfmt-dev \
+        libyaml-cpp-dev \
 	;
 
 #RUN cd; \

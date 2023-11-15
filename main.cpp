@@ -10,7 +10,7 @@ int main() {
 
     auto start = std::chrono::steady_clock::now();
     sl::ProjectProcessor testObj;
-    [[maybe_unused]] auto result = testObj.ProcessProject("../src/testproj/", 6);
+    [[maybe_unused]] auto result = testObj.ProcessProject("../src/testproj/", 12);
     auto end = std::chrono::steady_clock::now();
 
     fmt::print("\n\nElapsed time: {}ms\n",

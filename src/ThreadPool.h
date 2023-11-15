@@ -21,21 +21,21 @@ class ThreadPool {
     std::queue<JobType> queue;
     std::mutex qMutex;
     std::mutex cvMutex;
+    std::mutex printMutex;
     std::condition_variable condVar;
     std::atomic<bool> terminate;
-    std::atomic<unsigned> exitCnt;
     std::atomic<bool> queueNonEmpty;
-
-    std::mutex prMutex;
+    std::atomic<unsigned long long> errorCnt;
+    std::atomic<unsigned> exitCnt;
 
     template<class Function, class... Args>
-    void WorkerWrapper(unsigned id, Function fn, Args... args) {
+    void WorkerWrapper(Function fn, Args... args) {
         using namespace std::chrono_literals;
 
         while (!terminate.load() || queueNonEmpty.load()) {
             std::unique_lock lock(cvMutex);
-            condVar.wait(lock, [&queueNonEmpty = queueNonEmpty, &terminate = terminate] {
-                return (queueNonEmpty.load() || terminate.load());
+            condVar.wait(lock, [&rQueueNonEmpty = queueNonEmpty, &rTerminate = terminate] {
+                return (rQueueNonEmpty.load() || rTerminate.load());
             });
             lock.unlock();
 
@@ -47,28 +47,22 @@ class ThreadPool {
                 }
 
                 if (queueNonEmpty.load()) { condVar.notify_one(); }
-
-                fn(job.value(), args...);
+                try {
+                    fn(job.value(), args...);
+                } catch (const std::exception& err) {
+                    std::lock_guard printLockGuard{printMutex};
+                    fmt::print(stderr, "An exception occurred in a thread pool worker function provided by the user\n"
+                                       "The thread will NOT be terminated.\n"
+                                       "{}\n", err.what());
+                    errorCnt.fetch_add(1, std::memory_order_relaxed);
+                } catch ( ... ) {
+                    fmt::print(stderr, "Unknown exception in worker thread\n"
+                                       "The thread will NOT be terminated.\n");
+                    errorCnt.fetch_add(1, std::memory_order_relaxed);
+                }
             } while (queueNonEmpty.load());
         }
         exitCnt.fetch_add(1, std::memory_order_relaxed);
-    }
-
-
-public:
-    template<class Function, class... Args>
-    ThreadPool(const unsigned threadCnt, Function fn, Args... args) noexcept : terminate{false}, queueNonEmpty{true}, exitCnt{0}  {
-        pool.reserve(threadCnt);
-        for (unsigned i = 0; i < threadCnt; ++i) {
-            pool.emplace_back(&ThreadPool::WorkerWrapper<Function, Args...>, this, i, fn, args...);
-        }
-    }
-
-    void AddJob(const JobType& job) noexcept {
-        std::lock_guard lock{qMutex};
-        queueNonEmpty.store(true);
-        queue.emplace(job);
-        condVar.notify_one();
     }
 
     std::optional<JobType> GetJob() noexcept {
@@ -88,7 +82,36 @@ public:
         return tmp;
     }
 
-    void FinishAndTerminate() {
+public:
+    template<class Function, class... Args>
+    ThreadPool(const uint8_t threadCnt, Function fn, Args... args) noexcept : terminate{false}, queueNonEmpty{true}, exitCnt{0} {
+        pool.reserve(threadCnt);
+        for (unsigned i = 0; i < threadCnt; ++i) {
+            pool.emplace_back(&ThreadPool::WorkerWrapper<Function, Args...>, this, fn, args...);
+        }
+    }
+
+    ~ThreadPool() {
+        if (!terminate.load()) {
+            JoinAll();
+        }
+    }
+
+    void AddJob(const JobType& job) noexcept {
+        std::lock_guard lock{qMutex};
+        queueNonEmpty.store(true);
+        queue.emplace(job);
+        condVar.notify_one();
+    }
+
+    void AddJob(JobType&& job) noexcept {
+        std::lock_guard lock{qMutex};
+        queueNonEmpty.store(true);
+        queue.emplace(std::move(job));
+        condVar.notify_one();
+    }
+
+    void JoinAll() noexcept {
         terminate.store(true);
 
         while(exitCnt.load() < pool.size()) {
@@ -98,14 +121,16 @@ public:
 
         for (auto& thr : pool) {
             try {
-                if (thr.joinable()) {
-                    thr.join();
-                }
-            } catch ( const std::exception& e ) {
+                thr.join();
+            } catch ( ... ) {
                 // if a thread finish execution before join just ignore it
             }
         }
     }
+
+    [[nodiscard]] unsigned long long GetErrors() const noexcept {
+        return errorCnt.load();
+    };
 };
 
 

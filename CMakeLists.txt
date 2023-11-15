@@ -3,8 +3,6 @@ project(ShrinkLog)
 
 set(CMAKE_CXX_STANDARD 20)
 
-
-
 add_executable(ShrinkLog main.cpp
         src/ProjectProcessor.cpp
         src/ProjectProcessor.h
@@ -12,8 +10,8 @@ add_executable(ShrinkLog main.cpp
         src/IntfMasterMap.h
         src/ArgToBytesCount.cpp
         src/ArgToBytesCount.h
-        src/ThreadPool.cpp
-        src/ThreadPool.h)
+        src/ThreadPool.h
+        LoadConfig.h)
 
 target_include_directories(ShrinkLog PRIVATE /usr/include/)
-target_link_libraries(ShrinkLog PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9)
+target_link_libraries(ShrinkLog PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9 -l:libyaml-cpp.so.0.7.0)

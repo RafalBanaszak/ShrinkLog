@@ -1,0 +1,14 @@
+---
+short: 2
+int: 4
+long: 8
+long long: 8
+
+double: 8
+long double: 8
+
+wchar_t: 2
+intmax_t: 8
+size_t: 8
+ptrdiff_t: 8
+void*: 8

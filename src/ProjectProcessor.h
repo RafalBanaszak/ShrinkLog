@@ -6,6 +6,7 @@
 #define SHRINKLOG_PROJECTPROCESSOR_H
 
 #include <filesystem>
+#include <optional>
 #include <regex>
 #include <string>
 #include <span>
@@ -51,7 +52,7 @@ namespace sl {
         unsigned maxId;
         std::unordered_map<std::string, LogFunction> masterHashMap;
         std::shared_mutex mhmMutex;
-        ArgToBytesCount argToBytesCountConverter;
+        std::optional<ArgToBytesCount> argToBytesCountConverter;
 
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
         [[nodiscard]] std::vector<LogFunction> FindPrints(const std::string &fileContent) const noexcept;
@@ -59,7 +60,7 @@ namespace sl {
         void ExtractArguments(std::vector<LogFunction>& logs) const noexcept;
         void GenerateTagNames(std::vector<LogFunction>& logs) const noexcept;
         void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;
-        void ReplaceTags(std::vector<LogFunction> logs) const noexcept;
+        void ReplaceTags(std::vector<LogFunction> &logs) const noexcept;
         void AssignIDs() noexcept;
         [[nodiscard]] InternalStatus GenerateMapFile(stdf::path pth) const noexcept;
         [[nodiscard]] InternalStatus GenerateHeaderFile(stdf::path pth) const noexcept;
@@ -68,10 +69,11 @@ namespace sl {
         enum class OutputStatus {
             OK = 0,
             WrongProjectPath,
+            InvalidConfiguration,
             EmptyProjectDirectory
         };
 
-        [[nodiscard]] OutputStatus ProcessProject(const stdf::path&, const unsigned threadCount = 1) noexcept;
+        [[nodiscard]] OutputStatus ProcessProject(const stdf::path &projectPth, const uint8_t threadCount = 1) noexcept;
     };
 
 } // sl

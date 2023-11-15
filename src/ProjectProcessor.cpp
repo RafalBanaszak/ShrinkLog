@@ -176,7 +176,7 @@ namespace sl {
             buffer.reserve(48);
 
             while (regex_search(content, match, argPattern)) {
-                auto byteCnt = argToBytesCountConverter.GetByteSize(match[2], match[1]);
+                auto byteCnt = argToBytesCountConverter.value().GetByteSize(match[2], match[1]);
                 log.argSzs.push_back(byteCnt);
                 buffer.append(fmt::format("\\x{:02x}", byteCnt));
 
@@ -223,7 +223,7 @@ namespace sl {
         }
     }
 
-    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> logs) const noexcept {
+    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> &logs) const noexcept {
         for (auto& log : logs) {
             std::copy(log.stagNewName.cbegin(), log.stagNewName.cend(), log.stagView.begin());
         }
@@ -310,8 +310,8 @@ namespace sl {
         return InternalStatus::OK;
     }
 
-    ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const unsigned threadCount) noexcept {
-        // list all files with matching extensions
+    ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const uint8_t threadCount) noexcept {
+        // find configuration and source files
         if (not is_directory(pth)) {
             fmt::print(stderr, "Project file must be valid path to directory.\n");
             try {
@@ -323,7 +323,19 @@ namespace sl {
             }
         }
 
-        std::deque<stdf::path> filteredFileNames{};
+        // find a types size configuration file
+        stdf::path configPth = pth / "slog/typeConfig.yaml";
+        try {
+            argToBytesCountConverter = std::make_optional<ArgToBytesCount>(configPth);
+        } catch (const ArgToBytesCount::ConfigLoadError& e) {
+            fmt::print(stderr, "{}\n", e.what());
+            return OutputStatus::InvalidConfiguration;
+        } catch (const std::exception& e) {
+            fmt::print(stderr, "Unknown error during configuration loading:\n{}\n", e.what());
+            return OutputStatus::InvalidConfiguration;
+        }
+
+        std::vector<stdf::path> filteredFileNames{};
         auto dirIterator = stdf::recursive_directory_iterator(pth);
         for (const auto &file: dirIterator) {
             // TODO: This IF can be really slow. Check performance and fix if necessary
@@ -350,11 +362,11 @@ namespace sl {
             processed.fetch_add(1, std::memory_order_relaxed);
         }};
 
-
-        for (const auto &file: filteredFileNames) {
-            threadPool.AddJob(file);
+        for (auto& file: filteredFileNames) {
+            threadPool.AddJob(std::move(file));
         }
-        threadPool.FinishAndTerminate();
+
+        threadPool.JoinAll();
 
         fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
 
