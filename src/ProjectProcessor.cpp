@@ -23,10 +23,9 @@ namespace sl {
     std::unordered_set<std::string> ProjectProcessor::fileExtensions = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp",
                                                                         ".hxx"};
     //LOG\((SLOG_[a-zA-Z0-9_]{7})  -- log function and stagView
-    //[\s\\\n]*,[\s\\\n]            -- comma with 0-n space/backslash/newline before and/or after
-    //(["](?:[^"\\\n]|\\.|\\\n)*["])  -- C string including new lines and escaped quotes
-    //[^;]*;                        -- any characters except semicolon until semicolon
-    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*(["](?:[^"\\\n]|\\.|\\\n)*["])[^;]*;)###"};
+    //[\s\\\n]*,[\s\\\n]           -- comma with 0-n space/backslash/newline before and/or after
+    //("(?:[^"\\]|\\.)*"(?:\s*"(?:[^"\\]|\\.)*")*)\s*\)\s*;  -- C/C++ string which can be concatenated finished by );
+    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*("(?:[^"\\]|\\.)*"(?:\s*"(?:[^"\\]|\\.)*")*)\s*\)\s*;)###"};
     std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###"};
 
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
@@ -66,7 +65,7 @@ namespace sl {
         return ProjectProcessor::InternalStatus::OK;
     }
 
-    std::vector<ProjectProcessor::LogFunction> ProjectProcessor::FindPrints(const std::string &fileContent) const noexcept {
+    std::vector<ProjectProcessor::LogFunction> ProjectProcessor::FindPrints(const std::string &fileContent) noexcept {
         const auto fileParts = FilterUncommentedParts(const_cast<std::string &>(fileContent), minimumStringWidthToCheck);
 
         //TODO: Replace std::regex by https://github.com/intel/hyperscan
@@ -83,8 +82,9 @@ namespace sl {
                 auto logEnd         = logStart + match.length();
                 auto tagStart       = part.begin() + bufferShift + match.position(1);
                 auto tagEnd         = tagStart + match.length(1);
+                auto message            = SimplifyMultilineString(match.str(2));
 
-                result.push_back({ {tagStart, tagEnd}, match.str(2)});
+                result.push_back({{tagStart, tagEnd}, message});
                 bufferShift = std::distance(part.begin(), logEnd);
                 content = match.suffix();
             }
@@ -93,7 +93,7 @@ namespace sl {
     }
 
     std::vector<StringSpan>
-    ProjectProcessor::FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth) const noexcept {
+    ProjectProcessor::FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth) noexcept {
         std::vector<StringSpan> result{};
 
         if (fileContent.length() < minimumRangeWidth) {
@@ -106,20 +106,20 @@ namespace sl {
         partBegin = fileContent.begin();
         partEnd = fileContent.end();
 
-        auto it = fileContent.begin() - 1; // -1 to compensate while loop start from ++it
+        auto it = fileContent.begin();
         bool firstSlashDetected{}, inComment{}, blockComment{}, endStarDetected{};
 
         // Helper function
         // Add second element to range only if the range will be valid and meet minimum width requirements
         const auto SetRangeIfValid = [&result, &partBegin, &partEnd, minimumRangeWidth](auto it) {
-            auto rangeEnd = it - 2; // compensate next comment start characters
+            auto rangeEnd = it;
             if (std::distance(partBegin, rangeEnd) >= minimumRangeWidth) {
                 partEnd = rangeEnd;
                 result.emplace_back(partBegin, partEnd);
             }
         };
 
-        while (++it != fileContent.end()) {
+        while (it != fileContent.end()) {
             //READ THIS CODE BOTTOM UP
 
             //level 3: match block comment last character
@@ -130,12 +130,12 @@ namespace sl {
                     inComment = false;
                     blockComment = false;
                     endStarDetected = false;
-                    result.emplace_back(it + 1, it + 1);
+                    partBegin = it + 1;
                 } else {
                     endStarDetected = false;
                 }
             }
-                //level 2: match single line comment end or first character of block comment end
+            //level 2: match single line comment end or first character of block comment end
             else if (inComment) {
                 if (blockComment) {
                     if (*it == '*') {
@@ -145,7 +145,7 @@ namespace sl {
                     //end of single line comment
                     firstSlashDetected = false;
                     inComment = false;
-                    result.emplace_back(it + 1, fileContent.end());
+                    partBegin = it + 1;
                 }
             }
                 // level 1: match second comment start character (/ or *)
@@ -156,14 +156,46 @@ namespace sl {
                     SetRangeIfValid(it);
                 } else if (*it == '/') {
                     inComment = true;
-                    SetRangeIfValid(it);
+                    SetRangeIfValid(it - 2);
                 } else { firstSlashDetected = false; }
             }
                 // level 0: check if character is a slash
             else if (*it == '/') {
                 firstSlashDetected = true;
             }
+
+            ++it;
         }
+
+        // Uncommented file ranges are recognized as the text between comments.
+        // The beginning of an uncommented range is either the beginning of the file or the end of the last comment.
+        // The end of an uncommented range is the start of the next comment.
+        //
+        // In a file without any comments, the end of the first uncommented section would never be detected
+        // (since there's no start of the next comment).
+        //
+        // In a file ended by a code the end of the last uncommented section would never be detected
+        // (since there's no start of the next comment).
+        //
+        // The code below covers both issues.
+        if (!inComment || result.empty()) {
+            SetRangeIfValid(it);
+        }
+
+        return result;
+    }
+
+    std::string ProjectProcessor::SimplifyMultilineString(const std::string& str) noexcept {
+        static const std::regex re("\"(.*?)\""); // Regular expression to match quoted substrings
+        std::smatch match;
+        std::string result;
+        auto begin = str.cbegin();
+
+        while (std::regex_search(begin, str.cend(), match, re)) {
+            result += match[1].str(); // Add the matched substring (without quotes) to the result
+            begin = match.suffix().first;
+        }
+
         return result;
     }
 
@@ -186,14 +218,14 @@ namespace sl {
         }
     }
 
-    void ProjectProcessor::GenerateTagNames(std::vector<LogFunction> &logs) const noexcept {
+    void ProjectProcessor::GenerateTagNames(std::vector<LogFunction> &logs) noexcept {
         //helper function to convert to base63 (a-z, A-Z, 0-9, _)
         auto encodeBase63 = [](XXH64_hash_t input) -> std::string {
             constexpr unsigned digitNumber = 7;
             std::string result;
             result.reserve(digitNumber);
             for (int i = 0; i < digitNumber; ++i) {
-                char symbol = input % 63;
+                char symbol = static_cast<char>(input % 63);
                 input /= 63;
                 if (symbol < 10) {
                     symbol += 48;
@@ -223,7 +255,7 @@ namespace sl {
         }
     }
 
-    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> &logs) const noexcept {
+    void ProjectProcessor::ReplaceTags(std::vector<LogFunction> &logs) noexcept {
         for (auto& log : logs) {
             std::copy(log.stagNewName.cbegin(), log.stagNewName.cend(), log.stagView.begin());
         }

@@ -55,12 +55,13 @@ namespace sl {
         std::optional<ArgToBytesCount> argToBytesCountConverter;
 
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
-        [[nodiscard]] std::vector<LogFunction> FindPrints(const std::string &fileContent) const noexcept;
-        [[nodiscard]] std::vector<StringSpan> FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) const noexcept;
+        [[nodiscard]] static std::vector<LogFunction> FindPrints(const std::string &fileContent) noexcept;
+        [[nodiscard]] static std::vector<StringSpan> FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) noexcept;
+        [[nodiscard]] static std::string SimplifyMultilineString(const std::string& str) noexcept;
         void ExtractArguments(std::vector<LogFunction>& logs) const noexcept;
-        void GenerateTagNames(std::vector<LogFunction>& logs) const noexcept;
+        static void GenerateTagNames(std::vector<LogFunction>& logs) noexcept;
         void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;
-        void ReplaceTags(std::vector<LogFunction> &logs) const noexcept;
+        static void ReplaceTags(std::vector<LogFunction> &logs) noexcept;
         void AssignIDs() noexcept;
         [[nodiscard]] InternalStatus GenerateMapFile(stdf::path pth) const noexcept;
         [[nodiscard]] InternalStatus GenerateHeaderFile(stdf::path pth) const noexcept;
@@ -74,6 +75,8 @@ namespace sl {
         };
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path &projectPth, const uint8_t threadCount = 1) noexcept;
+
+        void SimplifyMultilineString(std::string &str) const;
     };
 
 } // sl
