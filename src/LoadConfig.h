@@ -38,10 +38,6 @@ namespace sl {
                 return {};
             }
 
-            // Example: Print the map
-            for (const auto& pair : result) {
-                fmt::print("{}: {}\n", pair.first, pair.second);
-            }
             return result;
         }
     };

@@ -24,8 +24,8 @@ namespace sl {
                                                                         ".hxx"};
     //LOG\((SLOG_[a-zA-Z0-9_]{7})  -- log function and stagView
     //[\s\\\n]*,[\s\\\n]           -- comma with 0-n space/backslash/newline before and/or after
-    //("(?:[^"\\]|\\.)*"(?:\s*"(?:[^"\\]|\\.)*")*)\s*\)\s*;  -- C/C++ string which can be concatenated finished by );
-    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*("(?:[^"\\]|\\.)*"(?:\s*"(?:[^"\\]|\\.)*")*)\s*\)\s*;)###"};
+    // -- C/C++ string which can be concatenated finished by );
+    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*"((?:[^"\\\n]|(?:\\.)|(?:\\\s*\n)|(?:"\s*\n\s*")|(?:"\s*"))*)"\s*\)\s*;)###"};
     std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###"};
 
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
@@ -186,16 +186,17 @@ namespace sl {
     }
 
     std::string ProjectProcessor::SimplifyMultilineString(const std::string& str) noexcept {
-        static const std::regex re("\"(.*?)\""); // Regular expression to match quoted substrings
+        static const std::regex re(R"###(^(?:\s*")?((?:[^"\\]|(?:\\.))*).*$)###", std::regex::optimize);
         std::smatch match;
         std::string result;
-        auto begin = str.cbegin();
 
-        while (std::regex_search(begin, str.cend(), match, re)) {
-            result += match[1].str(); // Add the matched substring (without quotes) to the result
-            begin = match.suffix().first;
+        std::istringstream iss{str};
+        std::string buffer;
+
+        while(std::getline(iss, buffer)){
+            std::regex_search(buffer.cbegin(), buffer.cend(), match, re);
+            result += match[1].str();
         }
-
         return result;
     }
 
