@@ -49,8 +49,10 @@ namespace sl {
         static std::regex argPattern;
         static unsigned int minimumStringWidthToCheck;
 
+        stdf::path projectPath;
         unsigned maxId;
         std::unordered_map<std::string, LogFunction> masterHashMap;
+        std::mutex printMutex;
         std::shared_mutex mhmMutex;
         std::optional<ArgToBytesCount> argToBytesCountConverter;
 

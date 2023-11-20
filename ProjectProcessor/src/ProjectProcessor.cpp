@@ -31,10 +31,16 @@ namespace sl {
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
 
     ProjectProcessor::InternalStatus ProjectProcessor::ProcessFile(const stdf::path &pth) noexcept {
+        {
+            std::lock_guard lock(printMutex);
+            fmt::print("Processing: {}\n", stdf::relative(pth, projectPath).string());
+        }
+
         //TODO: Replace the file loading method to mmap style (faster)
         using std::fstream;
         fstream fileStream{pth, std::ios::in | std::ios::out};
         if (not fileStream.is_open()) {
+            std::lock_guard lock(printMutex);
             fmt::print(stderr, "Unable to open the file: {}\n", absolute(pth).string());
             return InternalStatus::UnableToOpenFile;
         }
@@ -45,7 +51,8 @@ namespace sl {
 
         auto printArguments = FindPrints(fileContentStr); //get stagView and message
         if (printArguments.empty()) {
-            fmt::print(stderr, "Error during extracting print macros in the file: {} \n", absolute(pth).string());
+            std::lock_guard lock(printMutex);
+            fmt::print(stderr, "Error during extracting print macros in the file: {} \n", stdf::relative(pth, projectPath).string());
             return InternalStatus::UnableToFindPrintArguments;
         }
 
@@ -59,7 +66,8 @@ namespace sl {
             fileStream << fileContentStr;
             fileStream.close();
         } catch (const std::exception& e) {
-            fmt::print(stderr, "Unable to save the file.\n{}\n{}", pth.string(), e.what());
+            std::lock_guard lock(printMutex);
+            fmt::print(stderr, "Unable to save the file.\n{}\n{}", stdf::relative(pth, projectPath).string(), e.what());
         }
 
         return ProjectProcessor::InternalStatus::OK;
@@ -82,11 +90,7 @@ namespace sl {
                 auto logEnd         = logStart + match.length();
                 auto tagStart       = part.begin() + bufferShift + match.position(1);
                 auto tagEnd         = tagStart + match.length(1);
-                //TODO: Remove:
-                auto tmpMsg = match.str(2);
                 auto message            = SimplifyMultilineString(match.str(2));
-                //TODO: Remove:
-                fmt::print("{}\n{}\n---\n", tmpMsg, message);
 
                 result.push_back({{tagStart, tagEnd}, message});
                 bufferShift = std::distance(part.begin(), logEnd);
@@ -368,6 +372,8 @@ namespace sl {
     }
 
     ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const uint8_t threadCount) noexcept {
+        projectPath = pth;
+
         // find configuration and source files
         if (not is_directory(pth)) {
             fmt::print(stderr, "Project file must be valid path to directory.\n");
