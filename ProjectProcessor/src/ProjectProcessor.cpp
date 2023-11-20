@@ -25,8 +25,8 @@ namespace sl {
     //LOG\((SLOG_[a-zA-Z0-9_]{7})  -- log function and stagView
     //[\s\\\n]*,[\s\\\n]           -- comma with 0-n space/backslash/newline before and/or after
     // -- C/C++ string which can be concatenated finished by );
-    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*"((?:[^"\\\n]|(?:\\.)|(?:\\\s*\n)|(?:"\s*\n\s*")|(?:"\s*"))*)"\s*\)\s*;)###"};
-    std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###"};
+    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*"((?:[^"\\\n]|(?:\\.)|(?:\\\s*\n)|(?:"\s*\n\s*")|(?:"\s*"))*)"\s*[,\)])###", std::regex::optimize};
+    std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###", std::regex::optimize};
 
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
 
@@ -82,11 +82,16 @@ namespace sl {
                 auto logEnd         = logStart + match.length();
                 auto tagStart       = part.begin() + bufferShift + match.position(1);
                 auto tagEnd         = tagStart + match.length(1);
+                //TODO: Remove:
+                auto tmpMsg = match.str(2);
                 auto message            = SimplifyMultilineString(match.str(2));
+                //TODO: Remove:
+                fmt::print("{}\n{}\n---\n", tmpMsg, message);
 
                 result.push_back({{tagStart, tagEnd}, message});
                 bufferShift = std::distance(part.begin(), logEnd);
                 content = match.suffix();
+
             }
         }
         return result;
@@ -186,16 +191,35 @@ namespace sl {
     }
 
     std::string ProjectProcessor::SimplifyMultilineString(const std::string& str) noexcept {
-        static const std::regex re(R"###(^(?:\s*")?((?:[^"\\]|(?:\\.))*).*$)###", std::regex::optimize);
+        static const std::regex re(R"###(^(?:\s*")?((?:[^"\\]|(?:\\.)|("\s*"))*).*$)###", std::regex::optimize);
+        static const std::regex lineRe(R"###("\s*")###", std::regex::optimize);
         std::smatch match;
         std::string result;
 
         std::istringstream iss{str};
         std::string buffer;
 
-        while(std::getline(iss, buffer)){
-            std::regex_search(buffer.cbegin(), buffer.cend(), match, re);
-            result += match[1].str();
+        try {
+            while(std::getline(iss, buffer)){
+                std::regex_search(buffer.cbegin(), buffer.cend(), match, re);
+                // check if multiple strings are concatenated in a single line and convert to a single string if needed
+                if (match[2].length()) {
+                    const auto tmpStr = std::move(match.str(1));
+                    std::regex_replace(std::back_inserter(result), tmpStr.cbegin(), tmpStr.cend(), lineRe, "");
+                } else {
+                    result += match.str(1);
+                }
+            }
+        } catch (const std::regex_error& e) {
+            fmt::print(stderr, "Error during message simplification.\n"
+                               "This message won't be properly decoded, however"
+                               "other messages processed without an error should work.\n"
+                               "The message:\n"
+                               "###{}###\n"
+                               "Error code:\n"
+                               "{}\n",
+                               str, e.what());
+            result = "SHRINK LOG ERROR\n";
         }
         return result;
     }
@@ -293,7 +317,7 @@ namespace sl {
         try {
             pth /= "slog";
             stdf::create_directory(pth);
-            std::ofstream fileHandler(pth / "tags.h", std::ios::trunc | std::ios::out);
+            std::ofstream fileHandler(pth / "Tags.h", std::ios::trunc | std::ios::out);
 
             unsigned byteCnt;
             if (maxId < 0xFFU) {
@@ -357,7 +381,7 @@ namespace sl {
         }
 
         // find a types size configuration file
-        stdf::path configPth = pth / "slog/typeConfig.yaml";
+        stdf::path configPth = pth / "slog/TypeConfig.yaml";
         try {
             argToBytesCountConverter = std::make_optional<ArgToBytesCount>(configPth);
         } catch (const ArgToBytesCount::ConfigLoadError& e) {

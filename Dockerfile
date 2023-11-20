@@ -12,6 +12,16 @@ RUN set -ex; \
         libyaml-cpp-dev \
 	;
 
+RUN cd; \
+    git clone https://github.com/p-ranav/argparse.git; \
+    cd argparse; \
+    git checkout 69dabd88a8e6680b1a1a18397eb3e165e4019ce6; \
+    mkdir build; \
+    cd build; \
+    cmake -DARGPARSE_BUILD_SAMPLES=off -DARGPARSE_BUILD_TESTS=off ..; \
+    make; \
+    make install;
+
 #RUN cd; \
 #    git clone https://github.com/Microsoft/vcpkg.git; \
 #    cd vcpkg; \

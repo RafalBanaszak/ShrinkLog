@@ -5,7 +5,7 @@
 #ifndef SHRINKLOG_SHRINGLOG_H
 #define SHRINKLOG_SHRINGLOG_H
 
-#include "tags.h"
+#include "Tags.h"
 
 #include <stdio.h>
 #include <stdarg.h>

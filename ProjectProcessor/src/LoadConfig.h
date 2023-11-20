@@ -28,7 +28,7 @@ namespace sl {
                 }
 
             } catch (const YAML::BadFile& e) {
-                fmt::print(stderr, "Error: Unable to open type size config file '{}'.\n", pth.string());
+                fmt::print(stderr, "Error: Unable to open type size config file '{}'.\n", absolute(pth).string());
                 return {};
             } catch (const YAML::ParserException& e) {
                 fmt::print(stderr, "Error: Yaml parser error at line {}: {}\n{}\n", e.mark.line, e.what(),pth.string());
