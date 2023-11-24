@@ -4,6 +4,8 @@
 
 #include "ProjectProcessor.h"
 
+#include <cstdint>
+
 #include <atomic>
 #include <algorithm>
 #include <chrono>
@@ -16,6 +18,7 @@
 #include <fmt/ranges.h>
 #include <hs/hs.h>
 #include <xxhash.h>
+#include <cinttypes>
 
 #include "ThreadPool.h"
 
@@ -52,7 +55,7 @@ namespace sl {
         auto printArguments = FindPrints(fileContentStr); //get stagView and message
         if (printArguments.empty()) {
             std::lock_guard lock(printMutex);
-            fmt::print(stderr, "Error during extracting print macros in the file: {} \n", stdf::relative(pth, projectPath).string());
+            fmt::print("No logs extracted from the file: {} \n", stdf::relative(pth, projectPath).string());
             return InternalStatus::UnableToFindPrintArguments;
         }
 
@@ -298,6 +301,56 @@ namespace sl {
         maxId = id;
     }
 
+    void ProjectProcessor::UnifyArgumentTags() noexcept {
+        //replace all possible suffixes to ll/L
+        //encode in map file the signs of the arguments
+        //divide message into few smaller - one for every argument
+        //the decoder will:
+        //  - convert binary form to the widest local form. e.g signed 1byte to int64_t; float to long double etc.
+        //  - print message in form of smaller strings, every with one argument:
+        //  instead "bla bla %d bla bla %u" print "bla bla %lld", " bla bla %llu"
+        const std::regex argPat{R"###(%[-+ #0]*[\d]*(?:\.\d*)?((ll|L)|(hh|h|l|j|z|t))?(?:([csp])|(([di])|(?:[oxXu]))|([fFeEaAgG])))###", std::regex::optimize};
+
+
+        for (auto& mapEntry : masterHashMap) {
+            std::smatch match;
+            auto& message = mapEntry.second.message;
+            auto tmpMessage{message};
+            unsigned absPos{};
+
+            while (regex_search(tmpMessage, match, argPat)) {
+                const auto& hasPrefix = match[1].matched;
+                const auto& has_ll_or_L_prefix = match[2].matched;
+                const auto& isInteger = match[5].matched;
+                const auto& isFloatOrDouble = match[7].matched;
+
+                const auto& shortPrefixLength = match.length(3);
+                const auto& shortPrefixPosition = match.position(3);
+                const auto& integerPosition = match.position(5);
+                const auto& floatOrDoublePosition = match.position(7);
+
+                if (not has_ll_or_L_prefix) {
+                    if (isInteger) { // signed or unsigned int, change prefix to ll
+                        if (hasPrefix) {
+                            const auto& prefLen = shortPrefixLength;
+                            message.replace(shortPrefixPosition + absPos, prefLen, "ll");
+                            absPos += 2 - prefLen;
+                        } else {
+                            message.insert(integerPosition + absPos, "ll");
+                            absPos += 2;
+                        }
+                    } else if (isFloatOrDouble) { // float or double , change prefix to L
+                        message.insert(floatOrDoublePosition + absPos, "L");
+                        absPos += 1;
+                    }
+                }
+
+                tmpMessage = match.suffix();
+                absPos += match.length() + match.position();
+            }
+        }
+    }
+
     ProjectProcessor::InternalStatus ProjectProcessor::GenerateMapFile(stdf::path pth) const noexcept {
         try {
             pth /= "slog";
@@ -414,14 +467,14 @@ namespace sl {
 
         // process project files
         if (filteredFileNames.empty()) {
-            fmt::print(stderr, "No files with matching extension in provided directory\n");
+            fmt::print(stderr, "No files with matching extension in provided project path.\n");
             return OutputStatus::EmptyProjectDirectory;
         }
 
         std::atomic<unsigned> processed = 0, errorCnt = 0;
         ThreadPool<stdf::path> threadPool{threadCount, [this, &errorCnt, &processed](const stdf::path& path){
             auto result = ProcessFile(path);
-            if (result != InternalStatus::OK) { errorCnt.fetch_add(1, std::memory_order_relaxed); }
+            if (result != InternalStatus::OK && result != InternalStatus::UnableToFindPrintArguments) { errorCnt.fetch_add(1, std::memory_order_relaxed); }
             processed.fetch_add(1, std::memory_order_relaxed);
         }};
 
@@ -431,12 +484,12 @@ namespace sl {
 
         threadPool.JoinAll();
 
-        fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
-
         AssignIDs();
+        UnifyArgumentTags();
         (void)GenerateMapFile(pth);
         (void)GenerateHeaderFile(pth);
 
+        fmt::print("Processed files: {}/{} (successfully/all)\n", processed.load() - errorCnt.load(), processed.load());
         return ProjectProcessor::OutputStatus::OK;
     }
 
