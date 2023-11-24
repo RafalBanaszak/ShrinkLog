@@ -21,10 +21,12 @@ int main(int argc, char *argv[]) {
     uint8_t threadCnt;
     try {
         program.parse_args(argc, argv);
+
         projectPath = program.get<std::string>("PROJECT_PATH");
+
         const auto tmp = program.get<int>("-j");
         if (tmp > std::numeric_limits<uint8_t>::max() || tmp < 1) {
-            throw std::invalid_argument("Thread count must be in [1, 255] range!");
+            throw std::invalid_argument(fmt::format("Thread count must be in [1, 255] range! Provided value: {}\n", tmp));
         }
         threadCnt = tmp;
     }
