@@ -240,9 +240,9 @@ namespace sl {
             buffer.reserve(48);
 
             while (regex_search(content, match, argPattern)) {
-                auto byteCnt = argToBytesCountConverter.value().GetByteSize(match[2], match[1]);
-                log.argSzs.push_back(byteCnt);
-                buffer.append(fmt::format("\\x{:02x}", byteCnt));
+                auto argSig = argToBytesCountConverter.value().GetByteSize(match[2], match[1]);
+                log.argSzs.push_back(argSig);
+                buffer.append(fmt::format("\\x{:02x}", argSig.byteCnt));
 
                 content = match.suffix();
             }
@@ -323,7 +323,6 @@ namespace sl {
                 const auto& has_ll_or_L_prefix = match[2].matched;
                 const auto& isInteger = match[5].matched;
                 const auto& isFloatOrDouble = match[7].matched;
-
                 const auto& shortPrefixLength = match.length(3);
                 const auto& shortPrefixPosition = match.position(3);
                 const auto& integerPosition = match.position(5);
@@ -332,9 +331,8 @@ namespace sl {
                 if (not has_ll_or_L_prefix) {
                     if (isInteger) { // signed or unsigned int, change prefix to ll
                         if (hasPrefix) {
-                            const auto& prefLen = shortPrefixLength;
-                            message.replace(shortPrefixPosition + absPos, prefLen, "ll");
-                            absPos += 2 - prefLen;
+                            message.replace(shortPrefixPosition + absPos, shortPrefixLength, "ll");
+                            absPos += 2 - shortPrefixLength;
                         } else {
                             message.insert(integerPosition + absPos, "ll");
                             absPos += 2;
@@ -351,6 +349,12 @@ namespace sl {
         }
     }
 
+//    std::string ProjectProcessor::DivideMessageIntoSubstrings(const std::string& message) const noexcept {
+//        //TODO: Remove. MessageDescriptor division will be implemented on the decoder side
+//        const std::regex argPat{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?(?:[cspdioxXufFeEaAgG]))###", std::regex::optimize};
+//        return std::string{};
+//    }
+
     ProjectProcessor::InternalStatus ProjectProcessor::GenerateMapFile(stdf::path pth) const noexcept {
         try {
             pth /= "slog";
@@ -359,7 +363,10 @@ namespace sl {
 
             for (const auto& mapEntry : masterHashMap) {
                 auto log = mapEntry.second;
-                fileHandler << fmt::format("{};{};{}\n", log.stagId, fmt::join(log.argSzs, " "), log.message);
+                auto args = std::views::transform(log.argSzs, [](const auto& arg) {
+                    return fmt::format("{}{}", arg.byteCnt, arg.sign == ArgToBytesCount::Sign::UNSIGNED ? 'u' : 's');
+                });
+                fileHandler << fmt::format("{};{};{}\n", log.stagId, fmt::join(args, " "), log.message);
             }
 
         } catch (const std::exception& e) {

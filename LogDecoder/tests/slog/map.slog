@@ -1,0 +1,29 @@
+1;;Log string \"escaped\"%1$d:%2$.3$d:%4$.3$d\n
+2;4s 4s 4s 4s 4s 4s 4s;\tDecimal:    \t%lli %lld %.6lli %lli %.0lli %+lli %lli\n
+3;4s;(the last printf printed %lld characters)\n
+4;;Log string \"escaped\" %1$d:%2$.3$d:%4$.3$d\n
+5;;\tright-justified variable width: '%*c'\n
+6;;Variable width control:\n
+7;;\tleft-justified variable width : '%*c'\n
+8;8s 8s;\tSpecial values:\t0/0=%Lg 1/0=%Lg\n
+9;8s 8s;\tScientific:\t%LE %Le\n
+10;8s 8s 8s;\tPadding:\t%05.2Lf %.2Lf %5.2Lf\n
+11;8s 8s 8s;\tRounding:\t%Lf %.0Lf %.32Lf\n
+12;;Floating point:\n
+13;8s 8s;\tHexadecimal:\t%La %LA\n
+14;;Log1 string \"escaped\"%1$d:%2$.*3$d:%4$.*3$d\n
+15;127u;\t[%10s]\n
+16;127u;\t[%-10s]\n
+17;;Simple:\n
+18;;\t[%-*.*s]\n
+19;;Log1 string \"escaped\"%1$d:%2$.3$d:%4$.3$d\n
+20;2s 1s 4s 4s 4s 4s 4s;\tDecimal:    \t%lli %lld %.6lli %lli %.0lli %+lli %lli\n
+21;4u 4u 4u;\tOctal:      \t%llo %#llo %#llo\n
+22;;
+23;;\t[%-10.*s]\n
+24;4u 4u 4u 4u;\tHexadecimal:\t%llx %llx %llX %#llx\n
+25;;\t[%*s]\n
+26;1u;Characters:\t%c %%\n
+27;;Fixed-width types:\n
+28;;Strings:\n
+29;;Integers:\n

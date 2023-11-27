@@ -40,7 +40,7 @@ namespace sl {
             std::string stagNewName;      ///< New STAG name e.g. SLOG_7aYZVYc
             std::string stagEncArgs;      ///< Encoded arguments list e.g. "\0x01\0x04..."
             unsigned stagId;              ///< Identifies LOG message, a natural number
-            std::vector<unsigned> argSzs; ///< List of argument sizes in integer format
+            std::vector<ArgToBytesCount::ArgumentSignature> argSzs; ///< List of argument sizes in unsigned format
         };
 
         static std::unordered_set<std::string> fileExtensions;
@@ -65,6 +65,7 @@ namespace sl {
         void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;
         static void ReplaceTags(std::vector<LogFunction> &logs) noexcept;
         void AssignIDs() noexcept;
+        void UnifyArgumentTags() noexcept;
         [[nodiscard]] InternalStatus GenerateMapFile(stdf::path pth) const noexcept;
         [[nodiscard]] InternalStatus GenerateHeaderFile(stdf::path pth) const noexcept;
 
@@ -77,8 +78,6 @@ namespace sl {
         };
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path &projectPth, const uint8_t threadCount = 1) noexcept;
-
-        void SimplifyMultilineString(std::string &str) const;
     };
 
 } // sl

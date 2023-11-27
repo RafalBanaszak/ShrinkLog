@@ -5,8 +5,6 @@
 #ifndef SHRINKLOG_ARGTOBYTESCOUNT_H
 #define SHRINKLOG_ARGTOBYTESCOUNT_H
 
-#include <cstdint>
-
 #include <filesystem>
 #include <map>
 #include <string>
@@ -17,15 +15,17 @@ namespace sl
 {
 
 class ArgToBytesCount {
-    // map stores keys in a form of short hashes (instead strings) to speed up binary tree search
-    std::map<uint_fast32_t, unsigned> argToByteMapBasic;
-    std::map<uint_fast32_t, unsigned> argToByteMapExtended;
-    static constexpr uint32_t stringToHash(std::string const& str);
-
 public:
-    ArgToBytesCount() noexcept;
-    explicit ArgToBytesCount(const std::filesystem::path& pth);
-    [[nodiscard]] unsigned GetByteSize(std::string const& base, std::string const& extension) const noexcept;
+
+    enum class Sign{
+        UNSIGNED,
+        SIGNED
+    };
+
+    struct ArgumentSignature {
+        unsigned byteCnt;
+        Sign sign;
+    };
 
     class ConfigLoadError : public std::exception {
         std::string message = "Unable to load the configuration file with types size.";
@@ -35,9 +35,15 @@ public:
         }
     };
 
+    explicit ArgToBytesCount(const std::filesystem::path& pth);
+    [[nodiscard]] ArgumentSignature GetByteSize(std::string const& base, std::string const& extension) const noexcept;
+
+private:
+    // map stores keys in a form of short hashes (instead strings) to speed up binary tree search
+    std::map<uint_fast32_t, ArgumentSignature> argToByteMapBasic;
+    std::map<uint_fast32_t, ArgumentSignature> argToByteMapExtended;
+    static constexpr uint32_t stringToHash(std::string const& str);
 };
-
-
 
 }
 
