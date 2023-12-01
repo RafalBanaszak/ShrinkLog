@@ -6,32 +6,14 @@
 #define SHRINKLOG_DECODER_H
 
 #include "MessageDescriptor.h"
-#include "File.h"
-
-#include <filesystem>
-#include <regex>
-#include <sstream>
-#include <map>
-#include <shared_mutex>
+#include "MessageDescriptorStorage.h"
 
 namespace dc {
 
     class Decoder {
-        const static std::regex linePattern;
-        const static std::regex argPattern;
-        static const std::regex substringArgPattern;
-
-        ptrdiff_t linesNumber{};
-        std::vector<MessageDescriptor> descriptors;
-        std::shared_mutex descMtx;
-
-        void LoadMapLine(const std::string &line) noexcept;
-        static std::vector<MessageDescriptor::Chunk>
-        DivideMessageToChunks(const std::string &arguments, std::string message) ;
 
     public:
-        //TODO: Experiment, refactor
-        void LoadMap(const std::filesystem::path &path);
+        explicit Decoder(std::unique_ptr<MessageDescriptorStorage>&& messageMap) noexcept;
         [[nodiscard]] std::string DecodeSingle(std::vector<char> message) noexcept;
 
     };
