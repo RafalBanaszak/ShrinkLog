@@ -122,7 +122,7 @@ void LOG(char* tag, char* message, ...){
         if(tag[tagIt] <= 8){
             PrintStaticArgument(args, tag[tagIt]);
         }
-            /* Get dynamic arguments which byte size is NOT known */
+        /* Get dynamic arguments which byte size is NOT known */
         else if (tag[tagIt] == 0x7F) {
             PrintStringArgument(args);
         }

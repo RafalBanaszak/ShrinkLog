@@ -42,13 +42,14 @@ int main(int argc, char *argv[]) {
     fmt::print("--------------------\n"
                "Log decoding start\n"
                "Number of threads: {}\n"
-               "File path: {}\n"
+               "TextFile path: {}\n"
                "--------------------\n",
                threadCnt, logPath);
 
     auto msgDescStorage =
             std::make_unique<dc::MessageDescriptorStorage>("../LogDecoder/tests/slog/map.slog");
     dc::Decoder dec(std::move(msgDescStorage));
+    dec.DecodeTextFormat();
 
 
     auto stopTime = std::chrono::steady_clock::now();

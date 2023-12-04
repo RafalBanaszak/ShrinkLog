@@ -13,8 +13,8 @@ target_link_libraries(ProjectProcessor PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -
 add_executable(LogDecoder LogDecoder/main.cpp
         LogDecoder/src/Decoder.cpp
         LogDecoder/src/Decoder.h
-        LogDecoder/src/File.cpp
-        LogDecoder/src/File.h
+        LogDecoder/src/TextFile.cpp
+        LogDecoder/src/TextFile.h
         LogDecoder/src/MessageDescriptor.cpp
         LogDecoder/src/MessageDescriptor.h
         LogDecoder/src/MessageDescriptorStorage.cpp

@@ -14,10 +14,8 @@ namespace dc {
             R"#(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?(?:([cs])|([dioxXup])|(?:[fFeEaAgG])))#", std::regex::optimize};
 
     MessageDescriptorStorage::MessageDescriptorStorage(std::filesystem::path path) {
-        File file{path};
-        if (not file.valid) {
-            throw std::invalid_argument{"Unable to load the map file\n"};
-        }
+        // possible exception should be handled at the higher abstraction layer
+        TextFile file{path};
 
         auto fileContent = file.GetContent();
         _linesNumber = std::count(fileContent.cbegin(), fileContent.cend(), '\n') +
@@ -103,5 +101,9 @@ namespace dc {
 
     const MessageDescriptor &MessageDescriptorStorage::GetDescriptor(const unsigned int id) const {
         return _cache[id];
+    }
+
+    ptrdiff_t MessageDescriptorStorage::getMaxIndexNumber() const {
+        return _linesNumber;
     }
 } // dc

@@ -6,7 +6,7 @@
 #define SHRINKLOG_MESSAGEDESCRIPTORSTORAGE_H
 
 #include "MessageDescriptor.h"
-#include "File.h"
+#include "TextFile.h"
 
 #include <filesystem>
 #include <ranges>
@@ -30,7 +30,7 @@ namespace dc {
     public:
         explicit MessageDescriptorStorage(std::filesystem::path path);
         [[nodiscard]] const MessageDescriptor& GetDescriptor(const unsigned id) const;
-
+        [[nodiscard]] ptrdiff_t getMaxIndexNumber() const;
     };
 
     using MDS = MessageDescriptorStorage;
