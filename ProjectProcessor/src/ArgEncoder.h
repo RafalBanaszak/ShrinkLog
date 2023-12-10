@@ -2,8 +2,8 @@
 // Created by rafal on 09.10.2023.
 //
 
-#ifndef SHRINKLOG_ARGTOBYTESCOUNT_H
-#define SHRINKLOG_ARGTOBYTESCOUNT_H
+#ifndef SHRINKLOG_ARGENCODER_H
+#define SHRINKLOG_ARGENCODER_H
 
 #include <filesystem>
 #include <map>
@@ -14,18 +14,21 @@
 namespace sl
 {
 
-class ArgToBytesCount {
+class ArgEncoder {
 public:
-
-    enum class Sign{
-        UNSIGNED,
-        SIGNED
+    enum class Type{
+        UNSIGNED = 'u',
+        SIGNED = 'i',
+        DOUBLE = 'd',
+        STRING = 's'
     };
 
     struct ArgumentSignature {
         unsigned byteCnt;
-        Sign sign;
+        Type type;
     };
+
+    unsigned maxArgSize;
 
     class ConfigLoadError : public std::exception {
         std::string message = "Unable to load the configuration file with types size.";
@@ -35,7 +38,7 @@ public:
         }
     };
 
-    explicit ArgToBytesCount(const std::filesystem::path& pth);
+    explicit ArgEncoder(const std::filesystem::path& typeConfigPath);
     [[nodiscard]] ArgumentSignature GetByteSize(std::string const& base, std::string const& extension) const noexcept;
 
 private:
@@ -47,4 +50,4 @@ private:
 
 }
 
-#endif //SHRINKLOG_ARGTOBYTESCOUNT_H
+#endif //SHRINKLOG_ARGENCODER_H

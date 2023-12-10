@@ -9,7 +9,7 @@ LOG(SLOG_UNznSAv, "\t[%-*.*s]\n", 10, 4, s);
 LOG(SLOG_gvU6dNt, "Characters:\t%c %%\n", 'A');
 
 LOG(SLOG_24r_mNH, "Integers:\n");
-LOG(SLOG_k6LvmtD, "\tDecimal:    \t%i %d %.6i %i %.0i %+i %i\n",1, 2,   3, 0,   0,  4,-4);
+LOG(SLOG_q8I0gLX, "\tDecimal:    \t%hi %hhd %.6i %i %.0i %+i %i\n",1, 2,   3, 0,   0,  4,-4);
 LOG(SLOG_ziN4eZL, "\tHexadecimal:\t%x %x %X %#x\n",5,10,10,  6);
 LOG(SLOG_vTFqhpQ, "\tOctal:      \t%o %#o %#o\n",10, 10,  4);
 

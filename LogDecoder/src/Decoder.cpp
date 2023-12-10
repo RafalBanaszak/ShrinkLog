@@ -4,7 +4,10 @@
 
 #include "Decoder.h"
 
+#include <cstdio>
+
 #include <numeric>
+#include <variant>
 
 #include "fmt/core.h"
 
@@ -19,17 +22,13 @@ namespace dc {
     std::string Decoder::DecodeTextFormat(/*TextFile &&file*/) noexcept {
 
         //ignore the file try to decode on predefined strings
-//        3;4s;(the last printf printed %lld characters)\n
         const auto maxIndex = messageMap->getMaxIndexNumber();
-
-
 //        std::string alignedInput = "03FFFFFFF000";
-
         std::string alignedInput = "0A401400000000000040140000000000004014000000000000401400000000000000";
 
         //Decode index
         auto inputIterator = cbegin(alignedInput);
-        uint32_t index = hexStringToU64(inputIterator, inputIterator + 2);
+        uint32_t index = static_cast<uint32_t>(hexStringToU64(inputIterator, inputIterator + 2));
         inputIterator += 2;
         print("Index {} \n", index);
 
@@ -39,53 +38,68 @@ namespace dc {
         }
         auto &descriptor = messageMap->GetDescriptor(index);
 
+        std::string decodedLine;
         for (const auto &chunk: descriptor.msgChunks) {
-            //TODO: Separate implementation for strings
-            if (chunk.arg.type == ArgType::STRING) {
+            std::variant<std::string, uint64_t, int64_t, long double, nullptr_t> argumentValue;
 
+            if (chunk.arg.type == ArgType::STRING) {
+            //TODO: Implement strings decoder
             } else if (chunk.arg.type == ArgType::SIGNED_INT || chunk.arg.type == ArgType::UNSIGNED_INT) {
                 auto charactersToDecode = chunk.arg.size * 2;
-                uint64_t temp = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
+                uint64_t buffer = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
                 inputIterator += charactersToDecode;
 
                 if (chunk.arg.type == ArgType::SIGNED_INT) {
-                    int64_t out;
                     switch (chunk.arg.size) {
                         case 8:
-                            out = static_cast<int64_t>(temp);
+                            argumentValue = static_cast<int64_t>(buffer);
                             break;
                         case 4:
-                            out = static_cast<int32_t>(temp);
+                            argumentValue = static_cast<int64_t>(static_cast<int32_t>(buffer));
                             break;
                         case 2:
-                            out = static_cast<int16_t>(temp);
+                            argumentValue = static_cast<int64_t>(static_cast<int16_t>(buffer));
                             break;
                         case 1:
-                            out = static_cast<int8_t>(temp);
+                            argumentValue = static_cast<int64_t>(static_cast<int8_t>(buffer));
                             break;
                     }
-                    print("SIGNED_INT {} \n", out);
                 } else {
-                    print("UNSIGNED_INT {} \n", temp);
+                    argumentValue = buffer;
                 }
             } else if (chunk.arg.type == ArgType::FLOAT) {
                 auto charactersToDecode = chunk.arg.size * 2;
-                double result;
                 if (chunk.arg.size == 4) {
                     uint32_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
-                    float tmp = *(reinterpret_cast<float*>(&buf));
-                    result = tmp;
+                    argumentValue = static_cast<long double>(*(reinterpret_cast<float*>(&buf)));
+
                 } else {
                     uint64_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
-                    result = *(reinterpret_cast<double*>(&buf));
+                    argumentValue = static_cast<long double>(*(reinterpret_cast<double*>(&buf)));
                 }
                 inputIterator += charactersToDecode;
-                print("FLOAT {} \n", result);
+            } else if (chunk.arg.type == ArgType::EMPTY) {
+                argumentValue = nullptr;
             } else {
                 return {};
             }
 
+            std::visit([&decodedLine, &chunk](auto&& arg){
+                print("ARG: {}\n", arg);
+                constexpr size_t bufferSize = 1000;
+                char buffer[bufferSize];
+                if constexpr (std::is_same_v<std::string, std::decay<decltype(arg)>>) {
+                    std::snprintf(buffer, bufferSize, chunk.message.c_str(), arg.c_str());
+                } else if constexpr (std::is_same_v<nullptr_t, std::decay<decltype(arg)>>) {
+                    std::snprintf(buffer, bufferSize, chunk.message.c_str());
+                } else {
+                    std::snprintf(buffer, bufferSize, chunk.message.c_str(), arg);
+                }
+                decodedLine += buffer;
+            }, argumentValue);
         }
+
+        print("Decoded line: {}\n", decodedLine);
 
         return std::string();
     }

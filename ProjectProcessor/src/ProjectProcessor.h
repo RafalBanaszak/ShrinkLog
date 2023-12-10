@@ -19,7 +19,7 @@
 
 #include <xxhash.h>
 
-#include "ArgToBytesCount.h"
+#include "ArgEncoder.h"
 
 namespace sl {
     namespace stdf = std::filesystem;
@@ -40,7 +40,7 @@ namespace sl {
             std::string stagNewName;      ///< New STAG name e.g. SLOG_7aYZVYc
             std::string stagEncArgs;      ///< Encoded arguments list e.g. "\0x01\0x04..."
             unsigned stagId;              ///< Identifies LOG message, a natural number
-            std::vector<ArgToBytesCount::ArgumentSignature> argSzs; ///< List of argument sizes in unsigned format
+            std::vector<ArgEncoder::ArgumentSignature> argSzs; ///< List of argument sizes in unsigned format
         };
 
         static std::unordered_set<std::string> fileExtensions;
@@ -54,7 +54,7 @@ namespace sl {
         std::unordered_map<std::string, LogFunction> masterHashMap;
         std::mutex printMutex;
         std::shared_mutex mhmMutex;
-        std::optional<ArgToBytesCount> argToBytesCountConverter;
+        std::optional<ArgEncoder> argEncoderOpt;
 
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
         [[nodiscard]] static std::vector<LogFunction> FindPrints(const std::string &fileContent) noexcept;

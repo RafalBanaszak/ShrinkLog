@@ -239,10 +239,21 @@ namespace sl {
             std::string buffer;
             buffer.reserve(48);
 
+            const auto& argConverter = argEncoderOpt.value();
+
             while (regex_search(content, match, argPattern)) {
-                auto argSig = argToBytesCountConverter.value().GetByteSize(match[2], match[1]);
+                const auto &argBase = match.str(2);
+                const auto &argExtension = match.str(1);
+                auto argSig = argConverter.GetByteSize(argBase, argExtension);
                 log.argSzs.push_back(argSig);
-                buffer.append(fmt::format("\\x{:02x}", argSig.byteCnt));
+                if (argSig.type == ArgEncoder::Type::DOUBLE) {
+                    // doubles are recognized by adding to the size 0x10
+                    buffer.append(fmt::format("\\x{:02x}", argSig.byteCnt + 0x10));
+                } else {
+                    // signed and unsigned integers are encoded the same way - just byte size - no conversion needed
+                    // strings are marked by setting byteCnt to an high arbitrary value - no conversion needed
+                    buffer.append(fmt::format("\\x{:02x}", argSig.byteCnt));
+                }
 
                 content = match.suffix();
             }
@@ -364,7 +375,7 @@ namespace sl {
             for (const auto& mapEntry : masterHashMap) {
                 auto log = mapEntry.second;
                 auto args = std::views::transform(log.argSzs, [](const auto& arg) {
-                    return fmt::format("{}{}", arg.byteCnt, arg.sign == ArgToBytesCount::Sign::UNSIGNED ? 'u' : 's');
+                    return fmt::format("{}{}", arg.byteCnt, static_cast<char>(arg.type));
                 });
                 fileHandler << fmt::format("{};{};{}\n", log.stagId, fmt::join(args, " "), log.message);
             }
@@ -394,7 +405,11 @@ namespace sl {
 
             fileHandler << fmt::format("#define SLOG_ID_BYTE_CNT {}\n", byteCnt);
             fileHandler << "#define SLOG_INT_B_SIZE 4\n";
-            fileHandler << "/* #define SLOG_ENABLE_8B */\n";
+            if(argEncoderOpt->maxArgSize == 8) {
+                fileHandler << "#define SLOG_ENABLE_8B\n";
+            } else {
+                fileHandler << "/* #define SLOG_ENABLE_8B */\n";
+            }
             fileHandler << "/* #define SLOG_BINARY_MODE */\n";
 
             for (const auto &mapEntry: masterHashMap) {
@@ -449,8 +464,8 @@ namespace sl {
         // find a types size configuration file
         stdf::path configPth = pth / "slog/TypeConfig.yaml";
         try {
-            argToBytesCountConverter = std::make_optional<ArgToBytesCount>(configPth);
-        } catch (const ArgToBytesCount::ConfigLoadError& e) {
+            argEncoderOpt = std::make_optional<ArgEncoder>(configPth);
+        } catch (const ArgEncoder::ConfigLoadError& e) {
             fmt::print(stderr, "{}\n", e.what());
             return OutputStatus::InvalidConfiguration;
         } catch (const std::exception& e) {
