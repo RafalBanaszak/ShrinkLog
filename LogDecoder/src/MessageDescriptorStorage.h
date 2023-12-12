@@ -15,7 +15,7 @@
 
 #include "fmt/core.h"
 
-namespace dc {
+namespace sl {
 
     class MessageDescriptorStorage {
         const static std::regex linePattern;
@@ -34,6 +34,6 @@ namespace dc {
     };
 
     using MDS = MessageDescriptorStorage;
-} // dc
+} // sl
 
 #endif //SHRINKLOG_MESSAGEDESCRIPTORSTORAGE_H

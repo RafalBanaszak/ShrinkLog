@@ -40,7 +40,7 @@ namespace sl {
             std::string stagNewName;      ///< New STAG name e.g. SLOG_7aYZVYc
             std::string stagEncArgs;      ///< Encoded arguments list e.g. "\0x01\0x04..."
             unsigned stagId;              ///< Identifies LOG message, a natural number
-            std::vector<ArgEncoder::ArgumentSignature> argSzs; ///< List of argument sizes in unsigned format
+            std::vector<ArgEncoder::Argument> argSzs; ///< List of argument sizes in unsigned format
         };
 
         static std::unordered_set<std::string> fileExtensions;

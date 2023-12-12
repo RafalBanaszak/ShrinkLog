@@ -2,8 +2,8 @@
 // Created by rafal on 15.11.2023.
 //
 
-#ifndef SHRINKLOG_LOADCONFIG_H
-#define SHRINKLOG_LOADCONFIG_H
+#ifndef SHRINKLOG_TYPECONFIGLOADER_H
+#define SHRINKLOG_TYPECONFIGLOADER_H
 
 #include <map>
 #include <optional>
@@ -14,7 +14,7 @@
 #include <yaml-cpp/yaml.h>
 
 namespace sl {
-    struct LoadConfig {
+    struct TypeConfigLoader {
         static std::optional<std::map<std::string, unsigned>> LoadTypesSize(const std::filesystem::path& pth) noexcept {
 
             std::map<std::string, unsigned> result;
@@ -44,4 +44,4 @@ namespace sl {
 
 } // sl
 
-#endif //SHRINKLOG_LOADCONFIG_H
+#endif //SHRINKLOG_TYPECONFIGLOADER_H

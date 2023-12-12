@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 
-namespace dc {
+namespace sl {
     using fmt::print;
 
      TextFile::TextFile(const std::filesystem::path &path) {
@@ -35,4 +35,4 @@ namespace dc {
         ofs.close();
     }
 
-} // dc
+} // sl

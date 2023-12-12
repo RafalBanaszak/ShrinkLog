@@ -12,7 +12,7 @@
 #include <fmt/core.h>
 
 
-namespace dc {
+namespace sl {
 
     class TextFile {
         std::filesystem::path _path;
@@ -29,6 +29,6 @@ namespace dc {
         void SaveFile (const std::string& newContent);
     };
 
-} // dc
+} // sl
 
 #endif //SHRINKLOG_TEXTFILE_H

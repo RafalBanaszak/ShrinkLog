@@ -5,6 +5,8 @@
 #ifndef SHRINKLOG_MESSAGEDESCRIPTOR_H
 #define SHRINKLOG_MESSAGEDESCRIPTOR_H
 
+#include "ArgEncoder.h"
+
 #include <string>
 #include <string_view>
 #include <utility>
@@ -12,29 +14,19 @@
 
 #include <fmt/core.h>
 
-namespace dc {
+namespace sl {
 
     struct MessageDescriptor {
-        enum class Type {
-            UNSIGNED_INT,
-            SIGNED_INT,
-            FLOAT,
-            STRING,
-            EMPTY
-        };
-
         struct Chunk {
+            using Argument = ArgEncoder::Argument;
             std::string message;
-            struct {
-                unsigned size;
-                Type type;
-            } arg ;
+            Argument arg;
 
-            Chunk(const std::string& message, const unsigned size, const Type type ) :
-            message{message}, arg{.size = size, .type = type} {}
+            Chunk(const std::string& message, const Argument& arg) :
+            message{message}, arg{arg} {}
 
-            Chunk(std::string&& message, const unsigned size, const Type type ) noexcept :
-            message{std::move(message)}, arg{.size = size, .type = type} {}
+            Chunk(std::string&& message, Argument&& arg) noexcept :
+            message{std::move(message)}, arg{std::move(arg)} {}
 
             // No copy constructor until it isn't required.
             // Chunks should be created, moved to final destination and never touched (copied) again
@@ -61,6 +53,6 @@ namespace dc {
 
     };
 
-} // dc
+} // sl
 
 #endif //SHRINKLOG_MESSAGEDESCRIPTOR_

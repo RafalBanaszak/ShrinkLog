@@ -5,6 +5,7 @@
 #ifndef SHRINKLOG_ARGENCODER_H
 #define SHRINKLOG_ARGENCODER_H
 
+#include <array>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -17,35 +18,41 @@ namespace sl
 class ArgEncoder {
 public:
     enum class Type{
+        EMPTY = 0,
         UNSIGNED = 'u',
         SIGNED = 'i',
         DOUBLE = 'd',
         STRING = 's'
     };
 
-    struct ArgumentSignature {
+    struct Argument {
         unsigned byteCnt;
         Type type;
+        std::string encoded;
     };
 
     unsigned maxArgSize;
 
+    explicit ArgEncoder(const std::filesystem::path& typeConfigPath);
+    [[nodiscard]] Argument EncodeArg(const std::string &base, const std::string &extension) const;
+    [[nodiscard]] static Argument DecodeArg(const std::string& encoded, unsigned maxArgSize = 8);
+    [[nodiscard]] Argument GetByteSize(std::string const& base, std::string const& extension) const noexcept;
+
     class ConfigLoadError : public std::exception {
-        std::string message = "Unable to load the configuration file with types size.";
+        std::string message = "Unable to load the configuration file with validTypes size.";
     public:
         [[nodiscard]] const char* what () const noexcept override {
             return message.c_str();
         }
     };
 
-    explicit ArgEncoder(const std::filesystem::path& typeConfigPath);
-    [[nodiscard]] ArgumentSignature GetByteSize(std::string const& base, std::string const& extension) const noexcept;
-
 private:
     // map stores keys in a form of short hashes (instead strings) to speed up binary tree search
-    std::map<uint_fast32_t, ArgumentSignature> argToByteMapBasic;
-    std::map<uint_fast32_t, ArgumentSignature> argToByteMapExtended;
+    std::map<uint_fast32_t, Argument> argToByteMapBasic;
+    std::map<uint_fast32_t, Argument> argToByteMapExtended;
+    static constexpr std::array validTypes{'u', 'i', 'd', 's'};
     static constexpr uint32_t stringToHash(std::string const& str);
+
 };
 
 }

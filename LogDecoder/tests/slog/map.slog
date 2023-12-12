@@ -24,6 +24,6 @@
 24;4u 4u 4u 4u;\tHexadecimal:\t%llx %llx %llX %#llx\n
 25;;\t[%*s]\n
 26;1u;Characters:\t%c %%\n
-27;;Fixed-width types:\n
+27;;Fixed-width validTypes:\n
 28;;Strings:\n
 29;;Integers:\n

@@ -3,7 +3,7 @@
 //
 
 #include "ArgEncoder.h"
-#include "LoadConfig.h"
+#include "TypeConfigLoader.h"
 
 #include <stdexcept>
 #include <ranges>
@@ -12,7 +12,7 @@
 
 namespace sl {
     ArgEncoder::ArgEncoder(const std::filesystem::path& typeConfigPath) {
-        auto typesSizeOpt = LoadConfig::LoadTypesSize(typeConfigPath);
+        auto typesSizeOpt = TypeConfigLoader::LoadTypesSize(typeConfigPath);
         if(!typesSizeOpt.has_value()){
             throw ConfigLoadError{};
         }
@@ -70,6 +70,9 @@ namespace sl {
           {stringToHash("G"), {typesSize["double"], Type::DOUBLE}},
           {stringToHash("p"), {typesSize["void*"],  Type::UNSIGNED}},
         };
+        for (auto entry : argToByteMapBasic) {
+            entry.second.encoded = fmt::format("{}{}", entry.second.byteCnt, static_cast<char>(entry.second.type));
+        }
 
         argToByteMapExtended = {
           {stringToHash("hhd"), {1,                        Type::SIGNED}},
@@ -140,6 +143,9 @@ namespace sl {
           {stringToHash("Lg"),  {typesSize["long double"], Type::DOUBLE}},
           {stringToHash("LG"),  {typesSize["long double"], Type::DOUBLE}},
         };
+        for (auto entry : argToByteMapExtended) {
+            entry.second.encoded = fmt::format("{}{}", entry.second.byteCnt, static_cast<char>(entry.second.type));
+        }
     }
 
     constexpr uint32_t ArgEncoder::stringToHash(const std::string &str) {
@@ -149,8 +155,39 @@ namespace sl {
         return XXH32(str.data(), str.length(), 0);
     }
 
-    ArgEncoder::ArgumentSignature ArgEncoder::GetByteSize(const std::string &base, const std::string &extension) const noexcept {
-        ArgumentSignature retVal;
+    ArgEncoder::Argument ArgEncoder::EncodeArg(const std::string &base, const std::string &extension) const {
+        Argument arg;
+        if (extension.empty()) {
+            arg = argToByteMapBasic.at(stringToHash(base));
+        } else {
+            arg = argToByteMapExtended.at(stringToHash(extension + base));
+        }
+        return arg;
+    }
+
+    ArgEncoder::Argument ArgEncoder::DecodeArg(const std::string &encoded, unsigned maxArgSize) {
+        Argument arg;
+        size_t typePos{};
+        arg.byteCnt = std::stoul(encoded, &typePos);
+
+        [[unlikely]] if (arg.byteCnt > maxArgSize) {
+            fmt::print(stderr, "Location: {} {} {}\n", __FILE__, __FUNCTION__, __LINE__);
+            throw std::invalid_argument("Argument size is too large");
+        }
+
+        [[unlikely]] if(typePos >= encoded.size() || std::ranges::find(validTypes, encoded[typePos]) == end(validTypes)) {
+            fmt::print(stderr, "Location: {} {} {}\n", __FILE__, __FUNCTION__, __LINE__);
+            throw std::invalid_argument("Incorrect encoded argument format");
+        }
+
+        arg.type = static_cast<Type>(encoded[typePos]);
+        arg.encoded = encoded;
+
+        return arg;
+    }
+
+    ArgEncoder::Argument ArgEncoder::GetByteSize(const std::string &base, const std::string &extension) const noexcept {
+        Argument retVal;
         try {
             if (extension.empty()) {
                 retVal = argToByteMapBasic.at(stringToHash(base));
@@ -168,6 +205,8 @@ namespace sl {
         }
         return retVal;
     }
+
+
 }
 
 /*

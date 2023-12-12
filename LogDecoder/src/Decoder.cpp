@@ -11,17 +11,16 @@
 
 #include "fmt/core.h"
 
-namespace dc {
+namespace sl {
 
     using fmt::print;
-    using ArgType = MessageDescriptor::Type;
 
     Decoder::Decoder(std::unique_ptr<MessageDescriptorStorage> &&messageMap) noexcept:
             messageMap{std::move(messageMap)} {}
 
-    std::string Decoder::DecodeTextFormat(/*TextFile &&file*/) noexcept {
+    std::string Decoder::DecodeTextFormat(TextFile &&logFile) noexcept {
+        using Type = ArgEncoder::Type;
 
-        //ignore the file try to decode on predefined strings
         const auto maxIndex = messageMap->getMaxIndexNumber();
 //        std::string alignedInput = "03FFFFFFF000";
         std::string alignedInput = "0A401400000000000040140000000000004014000000000000401400000000000000";
@@ -42,43 +41,29 @@ namespace dc {
         for (const auto &chunk: descriptor.msgChunks) {
             std::variant<std::string, uint64_t, int64_t, long double, nullptr_t> argumentValue;
 
-            if (chunk.arg.type == ArgType::STRING) {
+            if (chunk.arg.type == Type::STRING) {
             //TODO: Implement strings decoder
-            } else if (chunk.arg.type == ArgType::SIGNED_INT || chunk.arg.type == ArgType::UNSIGNED_INT) {
-                auto charactersToDecode = chunk.arg.size * 2;
+            } else if (chunk.arg.type == Type::SIGNED || chunk.arg.type == Type::UNSIGNED) {
+                auto charactersToDecode = chunk.arg.byteCnt * 2;
                 uint64_t buffer = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
                 inputIterator += charactersToDecode;
 
-                if (chunk.arg.type == ArgType::SIGNED_INT) {
-                    switch (chunk.arg.size) {
-                        case 8:
-                            argumentValue = static_cast<int64_t>(buffer);
-                            break;
-                        case 4:
-                            argumentValue = static_cast<int64_t>(static_cast<int32_t>(buffer));
-                            break;
-                        case 2:
-                            argumentValue = static_cast<int64_t>(static_cast<int16_t>(buffer));
-                            break;
-                        case 1:
-                            argumentValue = static_cast<int64_t>(static_cast<int8_t>(buffer));
-                            break;
-                    }
+                if (chunk.arg.type == Type::SIGNED) {
+                    argumentValue = getSignedArgumentValue(chunk.arg.byteCnt, buffer);
                 } else {
                     argumentValue = buffer;
                 }
-            } else if (chunk.arg.type == ArgType::FLOAT) {
-                auto charactersToDecode = chunk.arg.size * 2;
-                if (chunk.arg.size == 4) {
+            } else if (chunk.arg.type == Type::DOUBLE) {
+                auto charactersToDecode = chunk.arg.byteCnt * 2;
+                if (chunk.arg.byteCnt == 4) {
                     uint32_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
                     argumentValue = static_cast<long double>(*(reinterpret_cast<float*>(&buf)));
-
                 } else {
                     uint64_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
                     argumentValue = static_cast<long double>(*(reinterpret_cast<double*>(&buf)));
                 }
                 inputIterator += charactersToDecode;
-            } else if (chunk.arg.type == ArgType::EMPTY) {
+            } else if (chunk.arg.type == Type::EMPTY) {
                 argumentValue = nullptr;
             } else {
                 return {};
@@ -120,4 +105,25 @@ namespace dc {
         });
     }
 
-} // dc
+    int64_t Decoder::getSignedArgumentValue(size_t size, uint64_t buffer) {
+        int64_t argumentValue = 0;
+        switch (size) {
+            case 8:
+                argumentValue = static_cast<int64_t>(buffer);
+                break;
+            case 4:
+                argumentValue = static_cast<int64_t>(static_cast<int32_t>(buffer));
+                break;
+            case 2:
+                argumentValue = static_cast<int64_t>(static_cast<int16_t>(buffer));
+                break;
+            case 1:
+                argumentValue = static_cast<int64_t>(static_cast<int8_t>(buffer));
+                break;
+            default:
+                throw std::invalid_argument("Size is not valid.");
+        }
+        return argumentValue;
+    }
+
+} // sl

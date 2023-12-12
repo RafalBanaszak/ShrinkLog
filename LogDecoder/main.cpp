@@ -47,9 +47,9 @@ int main(int argc, char *argv[]) {
                threadCnt, logPath);
 
     auto msgDescStorage =
-            std::make_unique<dc::MessageDescriptorStorage>("../LogDecoder/tests/slog/map.slog");
-    dc::Decoder dec(std::move(msgDescStorage));
-    dec.DecodeTextFormat();
+            std::make_unique<sl::MessageDescriptorStorage>("../LogDecoder/tests/slog/map.slog");
+    sl::Decoder dec(std::move(msgDescStorage));
+    dec.DecodeTextFormat(sl::TextFile("../TestProj/log.txt"));
 
 
     auto stopTime = std::chrono::steady_clock::now();

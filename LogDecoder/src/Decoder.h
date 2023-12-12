@@ -9,21 +9,22 @@
 #include "MessageDescriptorStorage.h"
 #include "TextFile.h"
 
-namespace dc {
+namespace sl {
 
     class Decoder {
         std::unique_ptr<MessageDescriptorStorage> messageMap;
 
-        static inline uint64_t hexStringToU64(std::string::const_iterator begin, std::string::const_iterator end) ;
+        [[nodiscard]] static inline uint64_t hexStringToU64(std::string::const_iterator begin, std::string::const_iterator end);
+        [[nodiscard]] static inline int64_t getSignedArgumentValue(size_t size, uint64_t buffer);
     public:
         explicit Decoder(std::unique_ptr<MessageDescriptorStorage>&& messageMap) noexcept;
-        [[nodiscard]] std::string DecodeTextFormat(/*TextFile&& file*/) noexcept;
+        [[nodiscard]] std::string DecodeTextFormat(TextFile&&) noexcept;
 
 
         [[nodiscard]] std::string DecodeSingle(std::vector<char> message) noexcept;
 
     };
 
-} // dc
+} // sl
 
 #endif //SHRINKLOG_DECODER_H

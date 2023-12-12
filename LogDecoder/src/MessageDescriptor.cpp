@@ -4,6 +4,6 @@
 
 #include "MessageDescriptor.h"
 
-namespace dc {
+namespace sl {
 
-} // dc
+} // sl

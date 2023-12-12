@@ -5,13 +5,14 @@
 #include "MessageDescriptorStorage.h"
 
 #include <algorithm>
+#include <string>
 
-namespace dc {
+namespace sl {
     using fmt::print;
 
     const std::regex MessageDescriptorStorage::linePattern{R"#((\d+);([^;]*);(.*$))#", std::regex::optimize};
     const std::regex MessageDescriptorStorage::substringArgPattern{
-            R"#(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?(?:([cs])|([dioxXup])|(?:[fFeEaAgG])))#", std::regex::optimize};
+            R"#(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?[csdioxXupfFeEaAgG]())#", std::regex::optimize};
 
     MessageDescriptorStorage::MessageDescriptorStorage(std::filesystem::path path) {
         // possible exception should be handled at the higher abstraction layer
@@ -56,7 +57,7 @@ namespace dc {
                 throw std::invalid_argument{"A line in map file doesn't match the pattern.\n"};
             }
         } catch (const std::exception &e) {
-            print(stderr, "Error during decoding a line in the map file. The line will be ignored.\n");
+            print(stderr, "Error during decoding a line in the map file. The line will be ignored\nLINE:{}.\n", line);
         }
     }
 
@@ -67,35 +68,21 @@ namespace dc {
         std::istringstream iss{arguments};
 
         while (std::regex_search(message, match, substringArgPattern)) {
-            const auto &isCharacterLike = match[1].matched;
-            const auto &isIntegerLike = match[2].matched;
+            //Message part of the chunk
+            const auto &endOfMatchPosition = match.position(1);
+            std::string messageChunk(message.c_str(), endOfMatchPosition);
 
-            std::string messageChunk(message.c_str(), match.position() + match.length());
-
-            if (isCharacterLike) {
-                result.EmplaceChunk(std::move(messageChunk), 0, MessageDescriptor::Type::STRING);
-            } else { //int like or float like
-                std::string arg{};
-                std::getline(iss, arg, ' ');
-                std::size_t pos;
-                auto size = std::stoul(arg, &pos);
-
-                if (isIntegerLike) {
-                    auto type = (arg[pos] == 'u' ? MessageDescriptor::Type::UNSIGNED_INT
-                                                 : MessageDescriptor::Type::SIGNED_INT);
-                    result.EmplaceChunk(std::move(messageChunk), size, type);
-                } else /* (isFloatLike) */ {
-                    result.EmplaceChunk(std::move(messageChunk), size, MessageDescriptor::Type::FLOAT);
-                }
-            }
+            //Argument part of the chunk
+            std::string rawArg{};
+            std::getline(iss, rawArg, ' ');
+            auto arg = ArgEncoder::DecodeArg(rawArg);
+            result.EmplaceChunk(std::move(messageChunk), std::move(arg));
 
             message = match.suffix();
         }
-
-        if (message.length()) {
-            result.EmplaceChunk(std::move(message), 0, MessageDescriptor::Type::EMPTY);
+        if (!message.empty()) {
+            result.EmplaceChunk(std::move(message), ArgEncoder::Argument{});
         }
-
         return result;
     }
 
@@ -106,4 +93,4 @@ namespace dc {
     ptrdiff_t MessageDescriptorStorage::getMaxIndexNumber() const {
         return _linesNumber;
     }
-} // dc
+} // sl

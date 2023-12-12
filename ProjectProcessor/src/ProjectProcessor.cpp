@@ -461,7 +461,7 @@ namespace sl {
             }
         }
 
-        // find a types size configuration file
+        // find a validTypes size configuration file
         stdf::path configPth = pth / "slog/TypeConfig.yaml";
         try {
             argEncoderOpt = std::make_optional<ArgEncoder>(configPth);
