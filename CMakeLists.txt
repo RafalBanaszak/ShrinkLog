@@ -25,6 +25,8 @@ add_executable(LogDecoder LogDecoder/main.cpp
         LogDecoder/src/MessageDescriptorStorage.cpp
         LogDecoder/src/MessageDescriptorStorage.h
         Common/ArgEncoder.cpp
+        LogDecoder/src/DescriptorCleaner.cpp
+        LogDecoder/src/DescriptorCleaner.h
 )
 
 target_include_directories(LogDecoder PRIVATE

@@ -47,6 +47,7 @@ public:
     };
 
 private:
+    constexpr static char stringCode = '\x7F';
     // map stores keys in a form of short hashes (instead strings) to speed up binary tree search
     std::map<uint_fast32_t, Argument> argToByteMapBasic;
     std::map<uint_fast32_t, Argument> argToByteMapExtended;

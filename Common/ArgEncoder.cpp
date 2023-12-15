@@ -53,7 +53,7 @@ namespace sl {
 
         argToByteMapBasic = {
           {stringToHash("c"), {1,                   Type::UNSIGNED}},
-          {stringToHash("s"), {'\x7F',              Type::STRING}},
+          {stringToHash("s"), {stringCode,          Type::STRING}},
           {stringToHash("d"), {typesSize["int"],    Type::SIGNED}},
           {stringToHash("i"), {typesSize["int"],    Type::SIGNED}},
           {stringToHash("o"), {typesSize["int"],    Type::UNSIGNED}},
@@ -170,7 +170,8 @@ namespace sl {
         size_t typePos{};
         arg.byteCnt = std::stoul(encoded, &typePos);
 
-        [[unlikely]] if (arg.byteCnt > maxArgSize) {
+
+        [[unlikely]] if (arg.byteCnt > maxArgSize && arg.byteCnt != stringCode) {
             fmt::print(stderr, "Location: {} {} {}\n", __FILE__, __FUNCTION__, __LINE__);
             throw std::invalid_argument("Argument size is too large");
         }

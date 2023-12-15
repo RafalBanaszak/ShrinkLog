@@ -40,7 +40,7 @@ static inline void SlogPutcharWrapper(unsigned char symbol)
 
 static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
 {
-    uint_fast8_t argIt;
+    int_fast8_t argIt;
 #ifdef SLOG_ENABLE_8B
     union
     {
@@ -64,7 +64,7 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
         else if (size == 2) { var.var16 = va_arg(args, uint16_t); }
         else                { var.var8  = va_arg(args, uint8_t ); }
     #endif
-    for (argIt = 0; argIt < size; ++argIt)
+    for (argIt = size - 1; argIt >= 0; --argIt)
     {
         SlogPutcharWrapper(var.var64 >> (8 * argIt));
     }
@@ -94,11 +94,11 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
 
 static inline void PrintDouble(va_list args)
 {
-    uint_fast8_t argIt;
+    int_fast8_t argIt;
     double d = va_arg(args, double);
     uint64_t buf = *(uint64_t*)(&d);
 
-    for (argIt = 0; argIt < 8; ++argIt)
+    for (argIt = 7; argIt >= 0; --argIt)
     {
         SlogPutcharWrapper(buf >> (8 * argIt));
     }
@@ -106,12 +106,12 @@ static inline void PrintDouble(va_list args)
 
 static inline void PrintStringArgument(va_list args)
 {
-    uint_fast16_t stringIt = 0;
+    int_fast16_t stringIt = 0;
     char* str = (char*)va_arg(args, char*);
     while(str[stringIt] != '\0'){
-        putchar(str[stringIt++]);
+        SlogPutchar(str[stringIt++]);
     }
-    SlogPutcharWrapper(str[stringIt]);
+    SlogPutchar('\0');
 }
 
 void LOG(char* tag, char* message, ...){

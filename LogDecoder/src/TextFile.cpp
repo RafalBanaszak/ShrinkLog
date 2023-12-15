@@ -24,7 +24,7 @@ namespace sl {
         _fileContent = oss.str();
     }
 
-    const std::string& TextFile::GetContent() const noexcept {
+    std::string TextFile::GetContent() const noexcept {
          return _fileContent;
     }
 

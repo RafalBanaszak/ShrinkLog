@@ -31,6 +31,8 @@ namespace sl {
         explicit MessageDescriptorStorage(std::filesystem::path path);
         [[nodiscard]] const MessageDescriptor& GetDescriptor(const unsigned id) const;
         [[nodiscard]] ptrdiff_t getMaxIndexNumber() const;
+
+        friend class DescriptorCleaner;
     };
 
     using MDS = MessageDescriptorStorage;

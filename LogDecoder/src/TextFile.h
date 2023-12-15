@@ -25,7 +25,7 @@ namespace sl {
         TextFile(TextFile&&) noexcept = default;
         TextFile& operator=(TextFile&&) noexcept = default;
 
-        [[nodiscard]] const std::string& GetContent() const noexcept;
+        [[nodiscard]] std::string GetContent() const noexcept;
         void SaveFile (const std::string& newContent);
     };
 

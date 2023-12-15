@@ -16,6 +16,7 @@ namespace sl {
 
         [[nodiscard]] static inline uint64_t hexStringToU64(std::string::const_iterator begin, std::string::const_iterator end);
         [[nodiscard]] static inline int64_t getSignedArgumentValue(size_t size, uint64_t buffer);
+        void replaceSpecialChars(void) noexcept;
     public:
         explicit Decoder(std::unique_ptr<MessageDescriptorStorage>&& messageMap) noexcept;
         [[nodiscard]] std::string DecodeTextFormat(TextFile&&) noexcept;
