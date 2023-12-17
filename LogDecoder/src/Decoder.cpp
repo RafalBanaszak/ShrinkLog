@@ -3,7 +3,6 @@
 //
 
 #include "Decoder.h"
-#include "DescriptorCleaner.h"
 
 #include <cstdio>
 
@@ -18,8 +17,6 @@ namespace sl {
 
     Decoder::Decoder(std::unique_ptr<MessageDescriptorStorage> &&messageMap) noexcept:
             messageMap{std::move(messageMap)} {
-
-        DescriptorCleaner::CleanDescriptors(this->messageMap);
     }
 
     std::string Decoder::DecodeTextFormat(TextFile &&logFile) noexcept {
@@ -51,7 +48,6 @@ namespace sl {
                         argumentValue = std::string(inputIterator, stringEnd);
                         inputIterator = stringEnd + 1;
                     } else {
-                        print("Buba\n");
                         break;
                     }
                 } else if (chunk.arg.type == Type::SIGNED || chunk.arg.type == Type::UNSIGNED) {
@@ -102,7 +98,6 @@ namespace sl {
         for (const auto& line: outputLines) {
             outputString += line;
         }
-        print("{}", outputString);
         return outputString;
     }
 

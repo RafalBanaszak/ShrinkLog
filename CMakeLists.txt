@@ -27,13 +27,14 @@ add_executable(LogDecoder LogDecoder/main.cpp
         Common/ArgEncoder.cpp
         LogDecoder/src/DescriptorCleaner.cpp
         LogDecoder/src/DescriptorCleaner.h
+        LogDecoder/src/DescriptorChunker.h
+        LogDecoder/src/DescriptorChunker.cpp
 )
 
 target_include_directories(LogDecoder PRIVATE
         ProjectProcessor/src
         Common
 )
-
 target_link_libraries(LogDecoder PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9 -l:libyaml-cpp.so.0.7.0)
 
 add_executable(TestProject TestProject/main.c)

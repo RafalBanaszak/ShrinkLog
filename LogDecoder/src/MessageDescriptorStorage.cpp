@@ -10,9 +10,7 @@
 namespace sl {
     using fmt::print;
 
-    const std::regex MessageDescriptorStorage::linePattern{R"#((\d+);([^;]*);(.*$))#", std::regex::optimize};
-    const std::regex MessageDescriptorStorage::substringArgPattern{
-            R"#(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?[csdioxXupfFeEaAgG]())#", std::regex::optimize};
+    const std::regex MessageDescriptorStorage::linePattern{R"#((\d+);([^;]*);(.*$))#", std::regex::optimize};;
 
     MessageDescriptorStorage::MessageDescriptorStorage(std::filesystem::path path) {
         // possible exception should be handled at the higher abstraction layer
@@ -51,7 +49,7 @@ namespace sl {
                 }
                 auto arguments = match[2].str();
                 auto message = match[3].str();
-                _cache[id] = DivideMessageToChunks(arguments, message);
+                _cache[id] = DescriptorChunker::DivideToChunks(arguments, message);
             } else {
                 //it's abnormal, rare case. Use throw to simplify the function flow.
                 throw std::invalid_argument{"A line in map file doesn't match the pattern.\n"};
@@ -59,31 +57,6 @@ namespace sl {
         } catch (const std::exception &e) {
             print(stderr, "Error during decoding a line in the map file. The line will be ignored\nLINE:{}.\n", line);
         }
-    }
-
-    MessageDescriptor
-    MessageDescriptorStorage::DivideMessageToChunks(const std::string &arguments, std::string message) {
-        std::smatch match;
-        MessageDescriptor result;
-        std::istringstream iss{arguments};
-
-        while (std::regex_search(message, match, substringArgPattern)) {
-            //Message part of the chunk
-            const auto &endOfMatchPosition = match.position(1);
-            std::string messageChunk(message.c_str(), endOfMatchPosition);
-
-            //Argument part of the chunk
-            std::string rawArg{};
-            std::getline(iss, rawArg, ' ');
-            auto arg = ArgEncoder::DecodeArg(rawArg);
-            result.EmplaceChunk(std::move(messageChunk), std::move(arg));
-
-            message = match.suffix();
-        }
-        if (!message.empty()) {
-            result.EmplaceChunk(std::move(message), ArgEncoder::Argument{});
-        }
-        return result;
     }
 
     const MessageDescriptor &MessageDescriptorStorage::GetDescriptor(const unsigned int id) const {

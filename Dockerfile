@@ -3,6 +3,7 @@ FROM gcc:13.2
 RUN set -ex; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
+        libc6-dbg \
 		cmake \
 		gdb \
         ninja-build \
@@ -11,6 +12,8 @@ RUN set -ex; \
         libfmt-dev \
         libyaml-cpp-dev \
 	;
+
+RUN apt-get -y install linux-perf
 
 RUN cd; \
     git clone https://github.com/p-ranav/argparse.git; \

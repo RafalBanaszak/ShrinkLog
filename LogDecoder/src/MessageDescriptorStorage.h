@@ -6,6 +6,7 @@
 #define SHRINKLOG_MESSAGEDESCRIPTORSTORAGE_H
 
 #include "MessageDescriptor.h"
+#include "DescriptorChunker.h"
 #include "TextFile.h"
 
 #include <filesystem>
@@ -19,14 +20,10 @@ namespace sl {
 
     class MessageDescriptorStorage {
         const static std::regex linePattern;
-        const static std::regex substringArgPattern;
-
         std::vector<MessageDescriptor> _cache;
         ptrdiff_t _linesNumber;
 
         void LoadMapLine(const std::string &line) noexcept;
-        static MessageDescriptor DivideMessageToChunks(const std::string &arguments, std::string message);
-
     public:
         explicit MessageDescriptorStorage(std::filesystem::path path);
         [[nodiscard]] const MessageDescriptor& GetDescriptor(const unsigned id) const;

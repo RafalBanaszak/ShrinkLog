@@ -3,9 +3,9 @@
 #include <argparse/argparse.hpp>
 #include <fmt/core.h>
 
-//TODO: Remove
 #include "src/Decoder.h"
 #include "src/MessageDescriptorStorage.h"
+#include "src/DescriptorCleaner.h"
 
 int main(int argc, char *argv[]) {
     auto startTime = std::chrono::steady_clock::now();
@@ -41,19 +41,25 @@ int main(int argc, char *argv[]) {
     fmt::print("--------------------\n"
                "Log decoding start\n"
                "Number of threads: {}\n"
-               "TextFile path: {}\n"
+               "Map file path: {}\n"
+               "Log file path: {}\n"
                "--------------------\n",
-               threadCnt, logPath);
+               threadCnt,mapPath, logPath);
 
-    auto msgDescStorage =
-            std::make_unique<sl::MessageDescriptorStorage>(mapPath);
+    //Load map file
+    auto msgDescStorage = std::make_unique<sl::MessageDescriptorStorage>(mapPath);
+    //Preprocess map file
+    sl::DescriptorCleaner::CleanDescriptors(msgDescStorage);
+    //Create decoder and decode the log file
     sl::Decoder dec(std::move(msgDescStorage));
-    dec.DecodeTextFormat(sl::TextFile(logPath));
-
+    auto output = dec.DecodeTextFormat(sl::TextFile(logPath));
 
     auto stopTime = std::chrono::steady_clock::now();
+    fmt::print("Output:\n{}\n", output);
     fmt::print("Elapsed time: {}ms\n",
                std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime).count());
+
+
 
     return 0;
 }
