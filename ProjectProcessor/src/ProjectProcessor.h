@@ -59,7 +59,7 @@ namespace sl {
         [[nodiscard]] InternalStatus ProcessFile(const stdf::path& pth) noexcept;
         [[nodiscard]] static std::vector<LogFunction> FindPrints(const std::string &fileContent) noexcept;
         [[nodiscard]] static std::vector<StringSpan> FilterUncommentedParts(std::string &fileContent, unsigned minimumRangeWidth = 1) noexcept;
-        [[nodiscard]] static std::string SimplifyMultilineString(const std::string& str) noexcept;
+        [[nodiscard]] static std::string SimplifyMultilineString(std::string &&str) noexcept;
         void ExtractArguments(std::vector<LogFunction>& logs) const noexcept;
         static void GenerateTagNames(std::vector<LogFunction>& logs) noexcept;
         void AppendToMasterHashMap(const std::vector<LogFunction> &logs) noexcept;

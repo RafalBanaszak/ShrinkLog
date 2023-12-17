@@ -28,7 +28,7 @@ namespace sl {
     //LOG\((SLOG_[a-zA-Z0-9_]{7})  -- log function and stagView
     //[\s\\\n]*,[\s\\\n]           -- comma with 0-n space/backslash/newline before and/or after
     // -- C/C++ string which can be concatenated finished by );
-    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*"((?:[^"\\\n]|(?:\\.)|(?:\\\s*\n)|(?:"\s*\n\s*")|(?:"\s*"))*)"\s*[,\)])###", std::regex::optimize};
+    std::regex ProjectProcessor::logPattern{R"###(LOG\((SLOG_[a-zA-Z0-9_]{7})[\s\\\n]*,[\s\\\n]*("(?:[^"\\\n]|(?:\\.)|(?:\\\s*\n)|(?:"\s*\n\s*")|(?:"\s*"))*")\s*[,\)])###", std::regex::optimize};
     std::regex ProjectProcessor::argPattern{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(hh|h|l|ll|j|z|t|L)?([csdioxXufFeEaAgGnp]))###", std::regex::optimize};
 
     unsigned ProjectProcessor::minimumStringWidthToCheck{17};
@@ -89,16 +89,15 @@ namespace sl {
             std::string content{part.begin(), part.end()};
             bufferShift = 0;
             while (regex_search(content, match, logPattern)) {
-                auto logStart       = part.begin() + bufferShift + match.position();
-                auto logEnd         = logStart + match.length();
-                auto tagStart       = part.begin() + bufferShift + match.position(1);
-                auto tagEnd         = tagStart + match.length(1);
-                auto message            = SimplifyMultilineString(match.str(2));
+                auto logStart  = part.begin() + bufferShift + match.position();
+                auto logEnd    = logStart + match.length();
+                auto tagStart  = part.begin() + bufferShift + match.position(1);
+                auto tagEnd    = tagStart + match.length(1);
+                auto message        = SimplifyMultilineString(match.str(2));
 
                 result.push_back({{tagStart, tagEnd}, message});
                 bufferShift = std::distance(part.begin(), logEnd);
                 content = match.suffix();
-
             }
         }
         return result;
@@ -197,27 +196,29 @@ namespace sl {
         return result;
     }
 
-    std::string ProjectProcessor::SimplifyMultilineString(const std::string& str) noexcept {
-        static const std::regex re(R"###(^(?:\s*")?((?:[^"\\]|(?:\\.)|("\s*"))*).*$)###", std::regex::optimize);
-        static const std::regex lineRe(R"###("\s*")###", std::regex::optimize);
-        std::smatch match;
+    std::string ProjectProcessor::SimplifyMultilineString(std::string &&str) noexcept {
         std::string result;
+        result.reserve(str.length());
 
-        std::istringstream iss{str};
-        std::string buffer;
+        //remove line continuations using regex (string with backslash at the end of the line)
+        static const std::regex lineContinuationPattern{R"###(\\\s*(?:\n|\r|\r\n))###", std::regex::optimize};
+        str = std::regex_replace(str, lineContinuationPattern, "");
 
-        try {
-            while(std::getline(iss, buffer)){
-                std::regex_search(buffer.cbegin(), buffer.cend(), match, re);
-                // check if multiple strings are concatenated in a single line and convert to a single string if needed
-                if (match[2].length()) {
-                    const auto tmpStr = std::move(match.str(1));
-                    std::regex_replace(std::back_inserter(result), tmpStr.cbegin(), tmpStr.cend(), lineRe, "");
-                } else {
-                    result += match.str(1);
-                }
+        //find all unescaped quotes and add them to vector of iterators
+        auto searchStart = str.cbegin();
+        auto searchStop = str.cend();
+        std::vector<std::string::const_iterator> quotes;
+        while (searchStart != searchStop) {
+            //match closing unescaped quote
+            auto quote = std::find(searchStart, searchStop, '"');
+            if (*(quote - 1) != '\\') {
+                quotes.push_back(quote);
             }
-        } catch (const std::regex_error& e) {
+            searchStart = quote + 1;
+        }
+
+        //check if number of quotes is odd
+        [[unlikely]] if ((quotes.size() & 1) == 1) {
             fmt::print(stderr, "Error during message simplification.\n"
                                "This message won't be properly decoded, however"
                                "other messages processed without an error should work.\n"
@@ -225,9 +226,13 @@ namespace sl {
                                "###{}###\n"
                                "Error code:\n"
                                "{}\n",
-                               str, e.what());
-            result = "SHRINK LOG ERROR\n";
+                               str, "Odd number of quotes");
         }
+
+        for (int i = 0; i < quotes.size(); i += 2) {
+            result.append(quotes[i] + 1, quotes[i + 1]);
+        }
+
         return result;
     }
 
@@ -315,11 +320,10 @@ namespace sl {
     void ProjectProcessor::UnifyArgumentTags() noexcept {
         //replace all possible suffixes to ll/L
         //encode in map file the signs of the arguments
-        //divide message into few smaller - one for every argument
         //the decoder will:
         //  - convert binary form to the widest local form. e.g signed 1byte to int64_t; float to long double etc.
         //  - print message in form of smaller strings, every with one argument:
-        //  instead "bla bla %d bla bla %u" print "bla bla %lld", " bla bla %llu"
+        //  instead "bla bla %d bla bla %u" print "bla bla %lld bla bla %llu"
         const std::regex argPat{R"###(%[-+ #0]*[\d]*(?:\.\d*)?((ll|L)|(hh|h|l|j|z|t))?(?:([csp])|(([di])|(?:[oxXu]))|([fFeEaAgG])))###", std::regex::optimize};
 
 
@@ -359,12 +363,6 @@ namespace sl {
             }
         }
     }
-
-//    std::string ProjectProcessor::DivideMessageIntoSubstrings(const std::string& message) const noexcept {
-//        //TODO: Remove. MessageDescriptor division will be implemented on the decoder side
-//        const std::regex argPat{R"###(%[-+ #0]*[\d]*(?:\.\d*)?(?:ll|L)?(?:[cspdioxXufFeEaAgG]))###", std::regex::optimize};
-//        return std::string{};
-//    }
 
     ProjectProcessor::InternalStatus ProjectProcessor::GenerateMapFile(stdf::path pth) const noexcept {
         try {
