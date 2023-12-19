@@ -13,7 +13,6 @@ target_include_directories(ProjectProcessor PRIVATE
         Common
 )
 target_link_libraries(ProjectProcessor PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9 -l:libyaml-cpp.so.0.7.0)
-#target_link_libraries(ProjectProcessor PRIVATE -l:libhs.a -l:libxxhash.a -l:libfmt.so -l:libyaml-cpp.a)
 
 add_executable(LogDecoder LogDecoder/main.cpp
         LogDecoder/src/Decoder.cpp
@@ -37,8 +36,8 @@ target_include_directories(LogDecoder PRIVATE
 )
 target_link_libraries(LogDecoder PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9 -l:libyaml-cpp.so.0.7.0)
 
-add_executable(TestProject TestProject/main.c)
-target_include_directories(TestProject PRIVATE
-    TestProject/subdir
+add_executable(ExampleProject ExampleProject/main.c)
+target_include_directories(ExampleProject PRIVATE
+        ExampleProject/subdir
 )
 

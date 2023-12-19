@@ -446,7 +446,6 @@ namespace sl {
 
     ProjectProcessor::OutputStatus ProjectProcessor::ProcessProject(const stdf::path &pth, const uint8_t threadCount) noexcept {
         projectPath = pth;
-
         // find configuration and source files
         if (not is_directory(pth)) {
             fmt::print(stderr, "Project file must be valid path to directory.\n");

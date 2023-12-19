@@ -13,16 +13,10 @@
 #include <stddef.h>
 
 /*
- * The library requires to implement and include here a function putchar with following signature:
- * void putchar(unsigned char byte)
+ * The library requires to implement in the project a function SlogPutchar with following signature:
+ * void SlogPutchar(unsigned char byte)
  */
-
-/* #include "include/putchar/header/here.h" */
-
-static inline void Slogputchar(char symbol)
-{
-    printf("%x", symbol & 0xFF);
-}
+void SlogPutchar(char symbol);
 
 #if !defined(SLOG_INT_B_SIZE) || SLOG_INT_B_SIZE != 4
 #error "Unsupported int size. Check SLOG_INT_B_SIZE definition"
@@ -46,14 +40,14 @@ static inline void SlogPutcharWrapper(unsigned char symbol)
 
 static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
 {
-    uint_fast8_t argIt;
+    int_fast8_t argIt;
 #ifdef SLOG_ENABLE_8B
     union
     {
-        uint_fast64_t var64;
-        uint_fast32_t var32;
-        uint_fast16_t var16;
-        uint_fast8_t  var8;
+        uint64_t var64;
+        uint32_t var32;
+        uint16_t var16;
+        uint8_t  var8;
     } var;
     #if SLOG_INT_B_SIZE == 8
         var.var64 = va_arg(args, uint64_t);
@@ -70,16 +64,16 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
         else if (size == 2) { var.var16 = va_arg(args, uint16_t); }
         else                { var.var8  = va_arg(args, uint8_t ); }
     #endif
-    for (argIt = 0; argIt < size; ++argIt)
+    for (argIt = size - 1; argIt >= 0; --argIt)
     {
         SlogPutcharWrapper(var.var64 >> (8 * argIt));
     }
 #else
     union
     {
-        uint_fast32_t var32;
-        uint_fast16_t var16;
-        uint_fast8_t  var8;
+        uint32_t var32;
+        uint16_t var16;
+        uint8_t  var8;
     } var;
 #if SLOG_INT_B_SIZE == 4
     var.var32 = va_arg(args, uint32_t);
@@ -98,14 +92,26 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
 #endif
 }
 
+static inline void PrintDouble(va_list args)
+{
+    int_fast8_t argIt;
+    double d = va_arg(args, double);
+    uint64_t buf = *(uint64_t*)(&d);
+
+    for (argIt = 7; argIt >= 0; --argIt)
+    {
+        SlogPutcharWrapper(buf >> (8 * argIt));
+    }
+}
+
 static inline void PrintStringArgument(va_list args)
 {
-    uint_fast16_t stringIt = 0;
+    int_fast16_t stringIt = 0;
     char* str = (char*)va_arg(args, char*);
     while(str[stringIt] != '\0'){
-        putchar(str[stringIt++]);
+        SlogPutchar(str[stringIt++]);
     }
-    SlogPutcharWrapper(str[stringIt]);
+    SlogPutchar('\0');
 }
 
 void LOG(char* tag, char* message, ...){
@@ -118,11 +124,15 @@ void LOG(char* tag, char* message, ...){
     }
 
     while(tag[tagIt] != '\0'){
-        /* Get static arguments which byte size is known */
-        if(tag[tagIt] <= 8){
+        /* Get integer arguments which byte size is known */
+        if(tag[tagIt] <= 0x08){
             PrintStaticArgument(args, tag[tagIt]);
         }
-        /* Get dynamic arguments which byte size is NOT known */
+            /* Get doubles */
+        else if(tag[tagIt] == 0x18){
+            PrintDouble(args);
+        }
+            /* Get dynamic arguments which byte size is NOT known */
         else if (tag[tagIt] == 0x7F) {
             PrintStringArgument(args);
         }

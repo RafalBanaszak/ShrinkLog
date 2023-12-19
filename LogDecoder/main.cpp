@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     auto output = dec.DecodeTextFormat(sl::TextFile(logPath));
 
     auto stopTime = std::chrono::steady_clock::now();
-    fmt::print("Output:\n{}\n", output);
+    fmt::print("Decoded logs:\n{}\n", output);
     fmt::print("Elapsed time: {}ms\n",
                std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime).count());
 

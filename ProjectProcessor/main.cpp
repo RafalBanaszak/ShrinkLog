@@ -36,18 +36,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    fmt::print("--------------------\n"
-               "Processing start\n"
-               "Number of threads: {}\n"
-               "Project path: {}\n"
-               "--------------------\n",
-               threadCnt, projectPath);
+    // stderr is flushed immediately, stdout is buffered
+    // use cout as nasty workaround to avoid printing the message after an exception is thrown from the code below
+    auto message = fmt::format("--------------------\n"
+                               "Processing start\n"
+                               "Number of threads: {}\n"
+                               "Project path: {}\n"
+                               "--------------------\n",
+                               threadCnt, projectPath);
+    std::cout << message << std::flush;
+
     sl::ProjectProcessor testObj;
-    [[maybe_unused]] auto result = testObj.ProcessProject(projectPath, threadCnt);
+    auto result = testObj.ProcessProject(projectPath, threadCnt);
 
     auto stopTime = std::chrono::steady_clock::now();
     fmt::print("Elapsed time: {}ms\n",
                std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime).count());
 
-    return 0;
+    return static_cast<int>(result);
 }

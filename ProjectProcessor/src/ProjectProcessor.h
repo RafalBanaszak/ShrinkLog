@@ -71,10 +71,10 @@ namespace sl {
 
     public:
         enum class OutputStatus {
-            OK = 0,
-            WrongProjectPath,
+            WrongProjectPath = -100,
             InvalidConfiguration,
-            EmptyProjectDirectory
+            EmptyProjectDirectory,
+            OK = 0
         };
 
         [[nodiscard]] OutputStatus ProcessProject(const stdf::path &projectPth, const uint8_t threadCount = 1) noexcept;
