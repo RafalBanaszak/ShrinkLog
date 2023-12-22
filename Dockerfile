@@ -13,8 +13,6 @@ RUN set -ex; \
         libyaml-cpp-dev \
 	;
 
-RUN apt-get -y install linux-perf
-
 RUN cd; \
     git clone https://github.com/p-ranav/argparse.git; \
     cd argparse; \
@@ -25,12 +23,7 @@ RUN cd; \
     make; \
     make install;
 
-#RUN cd; \
-#    git clone https://github.com/Microsoft/vcpkg.git; \
-#    cd vcpkg; \
-#    ./bootstrap-vcpkg.sh; \
-#    ./vcpkg integrate install; \
-#    ./vcpkg install xxhash; \
+#RUN apt-get -y install linux-perf
 
 # Set user and group
 ARG user=appuser
