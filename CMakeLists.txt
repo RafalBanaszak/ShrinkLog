@@ -29,7 +29,6 @@ add_executable(LogDecoder LogDecoder/main.cpp
         LogDecoder/src/DescriptorChunker.h
         LogDecoder/src/DescriptorChunker.cpp
 )
-
 target_include_directories(LogDecoder PRIVATE
         ProjectProcessor/src
         Common
