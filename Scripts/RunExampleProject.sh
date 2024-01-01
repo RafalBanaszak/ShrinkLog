@@ -5,6 +5,7 @@ docker run -v $(pwd)/..:/tmp shrink-log/build-env /bin/sh -c \
 "                                                                                                             \
 cd /tmp/ShrinkLog/                                                                                          &&\
 # 1. Copy the TargetLib and default configuration to the test project (to avoid files duplication)
+mkdir -p ./ExampleProject/slog                                                                              &&\
 cp -r ./TargetLib/slog/* ./ExampleProject/slog                                                              &&\
 cp ./TargetLib/TypeConfigs/default/TypeConfig.yaml ./ExampleProject/slog                                    &&\
 # 2. Run the ProjectProcessor to process the test project
