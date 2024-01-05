@@ -138,7 +138,6 @@ void LOG(char* tag, char* message, ...){
         }
         ++tagIt;
     }
-    SlogPutcharWrapper('\0');
 #ifndef SLOG_BINARY_MODE
     putchar('\n');
 #endif
