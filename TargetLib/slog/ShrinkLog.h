@@ -14,9 +14,9 @@
 
 /*
  * The library requires to implement in the project a function SlogPutchar with following signature:
- * void SlogPutchar(unsigned char byte)
+ * void SlogPutchar(char byte)
  */
-void SlogPutchar(char symbol);
+void SlogPutchar(char byte);
 
 #if !defined(SLOG_INT_B_SIZE) || SLOG_INT_B_SIZE != 4
 #error "Unsupported int size. Check SLOG_INT_B_SIZE definition"
@@ -26,7 +26,7 @@ void SlogPutchar(char symbol);
 #error "Int size equal to 8 but 8 byte mode disabled. Check SLOG_INT_B_SIZE and SLOG_ENABLE_8B defines"
 #endif
 
-static inline void SlogPutcharWrapper(unsigned char symbol)
+static inline void SlogPutHexText(unsigned char symbol)
 {
 #ifdef SLOG_BINARY_MODE
     putchar(symbol);
@@ -66,7 +66,7 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
     #endif
     for (argIt = size - 1; argIt >= 0; --argIt)
     {
-        SlogPutcharWrapper(var.var64 >> (8 * argIt));
+        SlogPutHexText(var.var64 >> (8 * argIt));
     }
 #else
     union
@@ -87,7 +87,7 @@ static inline void PrintStaticArgument(va_list args, const uint_fast8_t size)
 #endif
     for (argIt = 0; argIt < size; ++argIt)
     {
-        SlogPutcharWrapper(var.var32 >> (8 * argIt));
+        SlogPutHexText(var.var32 >> (8 * argIt));
     }
 #endif
 }
@@ -100,7 +100,7 @@ static inline void PrintDouble(va_list args)
 
     for (argIt = 7; argIt >= 0; --argIt)
     {
-        SlogPutcharWrapper(buf >> (8 * argIt));
+        SlogPutHexText(buf >> (8 * argIt));
     }
 }
 
@@ -120,7 +120,7 @@ void LOG(char* tag, char* message, ...){
     va_start(args, message);
 
     for (; tagIt < SLOG_ID_BYTE_CNT; ++tagIt){
-        SlogPutcharWrapper(tag[tagIt]);
+        SlogPutHexText(tag[tagIt]);
     }
 
     while(tag[tagIt] != '\0'){

@@ -3,6 +3,7 @@ cmake-*/
 *.ignore
 ExampleProject/logRaw.txt
 ExampleProject/logDecoded.txt
+ExampleProject/typesSz.txt
 ExampleProject/slog/
 
 # Prerequisites

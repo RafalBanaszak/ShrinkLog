@@ -35,8 +35,23 @@ target_include_directories(LogDecoder PRIVATE
 )
 target_link_libraries(LogDecoder PRIVATE -l:libhs.so.5 -l:libxxhash.so.0 -l:libfmt.so.9 -l:libyaml-cpp.so.0.7.0)
 
-add_executable(ExampleProject ExampleProject/main.c)
-target_include_directories(ExampleProject PRIVATE
-        ExampleProject/subdir
-)
 
+set(EXAMPLE_PROJECT_SRC ExampleProject/main.c)
+set(EXAMPLE_PROJECT_INC_DIR ExampleProject/subdir)
+
+add_executable(ExampleProject_LogDemo ${EXAMPLE_PROJECT_SRC})
+target_include_directories(ExampleProject_LogDemo PRIVATE ${EXAMPLE_PROJECT_INC_DIR})
+target_compile_definitions(ExampleProject_LogDemo PRIVATE -DSLOG_LOG_EXAMPLE)
+
+add_executable(ExampleProject_TypeSizeDiscoveryDemo ${EXAMPLE_PROJECT_SRC})
+target_include_directories(ExampleProject_TypeSizeDiscoveryDemo PRIVATE ${EXAMPLE_PROJECT_INC_DIR})
+target_compile_definitions(ExampleProject_TypeSizeDiscoveryDemo PRIVATE -DSLOG_DISCOVER_EXAMPLE)
+
+add_executable(ExampleProject_Test ${EXAMPLE_PROJECT_SRC})
+target_include_directories(ExampleProject_Test PRIVATE ${EXAMPLE_PROJECT_INC_DIR})
+target_compile_definitions(ExampleProject_Test PRIVATE -DSLOG_TEST)
+
+# Dummy project to allow IDEs like CLion properly view the files
+add_library(TargetLibDummy INTERFACE
+        TargetLib/slog/ShrinkLog.h
+        TargetLib/TypeConfigs/TypeSizeDiscovery.h)

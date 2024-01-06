@@ -71,11 +71,11 @@ cd ShrinkLog
    * build a docker image
    * build the ShrinkLog using docker image
    * build and execute the ExampleProject using docker image
-
-   You can check results of the ExampleProject.
-   1. Open and review the ExampleProject/main.c file. The first section is an internal test - ignore it. The ShrinkLog demo is located in the second part.
-   1. Open the logRaw.txt file and examine its contents. This file contains encoded logs.
-   1. Open the logDecoded.txt file and examine its contents. The demo logs can be found at the bottom of this file.
+   
+   You can check results of the ExampleProject:
+   * Open and review the ExampleProject/main.c file. The first section is an internal test - ignore it. The ShrinkLog demo is located in the second part.
+   * Open the logRaw.txt file and examine its contents. This file contains encoded logs.
+   * Open the logDecoded.txt file and examine its contents. The demo logs can be found at the bottom of this file.
 
 # How ShrinkLog works?
 
