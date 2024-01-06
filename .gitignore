@@ -1,10 +1,9 @@
 .idea/
 cmake-*/
 *.ignore
-ExampleProject/logRaw.txt
-ExampleProject/logDecoded.txt
-ExampleProject/typesSz.txt
+ExampleProject/*.txt
 ExampleProject/slog/
+ExampleProject/testResults/
 
 # Prerequisites
 *.d
