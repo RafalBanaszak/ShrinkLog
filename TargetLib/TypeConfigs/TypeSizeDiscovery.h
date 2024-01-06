@@ -47,6 +47,10 @@ static void SlogDiscover(void) {
     const size_t ptrdiff_t_sz = sizeof(ptrdiff_t);
     const size_t void_ptr_sz = sizeof(void*);
 
+    const unsigned endianness_helper = 0xAA;
+    const char* endianness = (endianness_helper & (char)0xFF) ? "little" : "big";
+
+    SlogPutString("endianness: ");  SlogPutString(endianness);                  SlogPutchar('\n');
     SlogPutString("short: ");       SlogPutSize((unsigned char)short_sz);       SlogPutchar('\n');
     SlogPutString("int: ");         SlogPutSize((unsigned char)int_sz);         SlogPutchar('\n');
     SlogPutString("long: ");        SlogPutSize((unsigned char)long_sz);        SlogPutchar('\n');
