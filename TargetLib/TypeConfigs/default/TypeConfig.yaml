@@ -5,9 +5,7 @@ long: 8
 long long: 8
 
 double: 8
-# Current SL implementation supports only parameters not wider than 8B thus support for
-# (normally 16B wide) long double is very limited
-long double: 8
+long double: 16
 
 wchar_t: 2
 intmax_t: 8

@@ -12,7 +12,7 @@
 
 namespace sl {
     ArgEncoder::ArgEncoder(const std::filesystem::path& typeConfigPath) {
-        auto typesSizeOpt = TypeConfigLoader::LoadTypesSize(typeConfigPath);
+        const auto typesSizeOpt = TypeConfigLoader::LoadTypesSize(typeConfigPath);
         if(!typesSizeOpt.has_value()){
             throw ConfigLoadError{};
         }
@@ -32,7 +32,7 @@ namespace sl {
           "void*",
         };
         constexpr std::array allowedValues = {
-          1, 2, 4, 8
+          1, 2, 4, 8, 16
         };
         for (const auto& field: obligatoryFields) {
             auto it = typesSize.find(field);
@@ -169,7 +169,6 @@ namespace sl {
         Argument arg;
         size_t typePos{};
         arg.byteCnt = std::stoul(encoded, &typePos);
-
 
         [[unlikely]] if (arg.byteCnt > maxArgSize && arg.byteCnt != stringCode) {
             fmt::print(stderr, "Location: {} {} {}\n", __FILE__, __FUNCTION__, __LINE__);

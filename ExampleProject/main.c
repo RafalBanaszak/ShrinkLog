@@ -6,8 +6,9 @@
 #include "slog/TypeSizeDiscovery.h"
 #include <math.h>
 
-void SlogPutchar(char symbol) {
-    putchar(symbol);
+/* On the target device this function should implement sending a character over interface to the log collecting PC */
+void SlogPutchar(const char byte) {
+    putchar(byte);
 }
 
 int main() {
@@ -28,7 +29,7 @@ int main() {
                       "[%s] [%5s] [%-5s]\n",
                       42, -1,
                       0x12, 0x1234, 0x12345678, 0x1234567890AABBCC, 0x1234567890AABBCC,
-                      M_PI, M_PI, M_PI, M_PI, M_PI,
+                      M_PI, M_PI, M_PI, M_PI, (long double)M_PI,
                       'A',
                       "test_string", "test_string", "test_string");
 #elif SLOG_DISCOVER_EXAMPLE

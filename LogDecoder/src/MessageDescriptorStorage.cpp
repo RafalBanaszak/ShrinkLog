@@ -26,15 +26,6 @@ namespace sl {
         for (std::string line; std::getline(iss, line);) {
             LoadMapLine(line);
         }
-
-        //TODO: Remove, only for debug
-//        for (const auto &line: _cache) {
-//            print("DESC: \n");
-//            for (const auto &chunk: line.msgChunks) {
-//                print("{}\n", chunk.message);
-//            }
-//            print("\n");
-//        }
     }
 
     void MessageDescriptorStorage::LoadMapLine(const std::string &line) noexcept {

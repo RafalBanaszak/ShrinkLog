@@ -13,8 +13,8 @@
  * void SlogPutchar(char byte)
  *
  * If you don't have working communication at this point you can declare empty SlogPutchar function and use debugger
- * to check results. Disable optimizations or add -Wno-unused-variable flag to prevent removing of the
- * 'unused' variables.
+ * to check results. Disable optimizations or add -Wno-unused-variable flag to prevent the
+ * 'unused' variables from being removed.
  */
 void SlogPutchar(char byte);
 

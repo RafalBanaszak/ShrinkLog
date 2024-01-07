@@ -95,7 +95,7 @@ namespace sl {
                 auto tagEnd    = tagStart + match.length(1);
                 auto message        = SimplifyMultilineString(match.str(2));
 
-                result.push_back({{tagStart, tagEnd}, message});
+                result.push_back({{tagStart, tagEnd}, std::move(message)});
                 bufferShift = std::distance(part.begin(), logEnd);
                 content = match.suffix();
             }
@@ -401,13 +401,12 @@ namespace sl {
                 byteCnt = 3;
             }
 
+            const auto& argEncoder = argEncoderOpt.value();
+
             fileHandler << fmt::format("#define SLOG_ID_BYTE_CNT {}\n", byteCnt);
-            fileHandler << "#define SLOG_INT_B_SIZE 4\n";
-            if(argEncoderOpt->maxArgSize == 8) {
-                fileHandler << "#define SLOG_ENABLE_8B\n";
-            } else {
-                fileHandler << "/* #define SLOG_ENABLE_8B */\n";
-            }
+            fileHandler << fmt::format("#define SLOG_INT_MAX_B_SIZE {}\n", argEncoder.EncodeArg("i", "ll").byteCnt);
+            fileHandler << fmt::format("#define SLOG_INT_PLAIN_B_SIZE {}\n", argEncoder.EncodeArg("i", "").byteCnt);
+            fileHandler << "/* #define SLOG_LONG_DOUBLE_ENABLE */\n";
             fileHandler << "/* #define SLOG_BINARY_MODE */\n";
 
             for (const auto &mapEntry: masterHashMap) {

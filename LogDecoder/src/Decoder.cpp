@@ -30,7 +30,7 @@ namespace sl {
         while (std::getline(issEncodedLog, logLine)) {
             //Decode index
             auto inputIterator = cbegin(logLine);
-            uint32_t index = static_cast<uint32_t>(hexStringToU64(inputIterator, inputIterator + 2));
+            auto index = hexStringToType<uint32_t>(inputIterator, inputIterator + 2);
             inputIterator += 2;
 
             //decode args
@@ -52,7 +52,7 @@ namespace sl {
                     }
                 } else if (chunk.arg.type == Type::SIGNED || chunk.arg.type == Type::UNSIGNED) {
                     auto charactersToDecode = chunk.arg.byteCnt * 2;
-                    uint64_t buffer = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
+                    auto buffer = hexStringToType<uint64_t>(inputIterator, inputIterator + charactersToDecode);
                     inputIterator += charactersToDecode;
 
                     if (chunk.arg.type == Type::SIGNED) {
@@ -63,11 +63,12 @@ namespace sl {
                 } else if (chunk.arg.type == Type::DOUBLE) {
                     auto charactersToDecode = chunk.arg.byteCnt * 2;
                     if (chunk.arg.byteCnt == 4) {
-                        uint32_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
-                        argumentValue = static_cast<long double>(*(reinterpret_cast<float *>(&buf)));
+                        //TODO: Does it make any sense?
+                        argumentValue = hexStringToType<float>(inputIterator, inputIterator + charactersToDecode);
+                    } else if (chunk.arg.byteCnt == 8) {
+                        argumentValue = hexStringToType<double>(inputIterator, inputIterator + charactersToDecode);
                     } else {
-                        uint64_t buf = hexStringToU64(inputIterator, inputIterator + charactersToDecode);
-                        argumentValue = static_cast<long double>(*(reinterpret_cast<double *>(&buf)));
+                        argumentValue = hexStringToType<long double>(inputIterator, inputIterator + charactersToDecode);
                     }
                     inputIterator += charactersToDecode;
                 } else if (chunk.arg.type == Type::EMPTY) {
@@ -101,20 +102,35 @@ namespace sl {
         return outputString;
     }
 
-    uint64_t Decoder::hexStringToU64(const std::string::const_iterator begin, const std::string::const_iterator end) {
-        return std::accumulate<std::string::const_iterator, uint64_t>(begin, end, 0u, [](uint64_t value, char c) {
-            value <<= 4;
-            if (c >= '0' && c <= '9') {
-                value |= c - '0';
-            } else if (c >= 'A' && c <= 'F') {
-                value |= 10 + c - 'A';
-            } else if (c >= 'a' && c <= 'f') {
-                value |= 10 + c - 'a';
-            } else {
-                throw std::invalid_argument("Illegal character in a message detected");
+    template<typename T>
+    T Decoder::hexStringToType(const std::string::const_iterator beginIt, const std::string::const_iterator endIt) {
+        [[unlikely]] if (std::distance(beginIt, endIt) > sizeof(T) * 2) {
+            throw std::invalid_argument("Hex string too long");
+        }
+
+        auto HexToByte = [](const char hex) {
+            if (hex >= '0' && hex <= '9') {
+                return hex - '0';
             }
-            return value;
-        });
+            if (hex >= 'A' && hex <= 'F') {
+                return 10 + hex - 'A';
+            }
+            if (hex >= 'a' && hex <= 'f') {
+                return 10 + hex - 'a';
+            }
+            throw std::invalid_argument("Illegal character in a message detected");
+        };
+
+        T result{};
+        const auto rptr = reinterpret_cast<unsigned char*>(&result);
+        unsigned byteCnt{};
+        for(auto it = beginIt; it != endIt; it += 2) {
+            uint_fast8_t byte{};
+            byte |= HexToByte(*it) << 4;
+            byte |= HexToByte(*(it+1));
+            rptr[byteCnt++] = byte;
+        }
+        return result;
     }
 
     int64_t Decoder::getSignedArgumentValue(size_t size, uint64_t buffer) {

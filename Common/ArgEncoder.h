@@ -35,7 +35,7 @@ public:
 
     explicit ArgEncoder(const std::filesystem::path& typeConfigPath);
     [[nodiscard]] Argument EncodeArg(const std::string &base, const std::string &extension) const;
-    [[nodiscard]] static Argument DecodeArg(const std::string& encoded, unsigned maxArgSize = 8);
+    [[nodiscard]] static Argument DecodeArg(const std::string& encoded, unsigned maxArgSize = 16);
     [[nodiscard]] Argument GetByteSize(std::string const& base, std::string const& extension) const noexcept;
 
     class ConfigLoadError : public std::exception {

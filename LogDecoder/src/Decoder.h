@@ -14,9 +14,9 @@ namespace sl {
     class Decoder {
         std::unique_ptr<MessageDescriptorStorage> messageMap;
 
-        [[nodiscard]] static inline uint64_t hexStringToU64(std::string::const_iterator begin, std::string::const_iterator end);
+        template<typename T>
+        [[nodiscard]] static T hexStringToType(std::string::const_iterator beginIt, std::string::const_iterator endIt);
         [[nodiscard]] static inline int64_t getSignedArgumentValue(size_t size, uint64_t buffer);
-        void replaceSpecialChars(void) noexcept;
     public:
         explicit Decoder(std::unique_ptr<MessageDescriptorStorage>&& messageMap) noexcept;
         [[nodiscard]] std::string DecodeTextFormat(TextFile&&) noexcept;
