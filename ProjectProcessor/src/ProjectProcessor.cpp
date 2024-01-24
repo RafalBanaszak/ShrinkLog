@@ -477,7 +477,7 @@ namespace sl {
                 dirIterator.disable_recursion_pending();
                 continue;
             }
-            auto extension = file.path().extension().string();
+            auto extension = file.path().extension();
             if (fileExtensions.contains(extension)) {
                 filteredFileNames.emplace_back(file);
             }
