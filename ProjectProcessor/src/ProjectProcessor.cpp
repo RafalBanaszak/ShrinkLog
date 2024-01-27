@@ -421,16 +421,16 @@ namespace sl {
                     case 2:
                         fileHandler << fmt::format("#define {} \"\\x{:02x}\\x{:02x}{}\"\n",
                                                    log.stagNewName,
-                                                   (log.stagId >> 8) & 0xFF,
                                                    log.stagId & 0xFF,
+                                                   (log.stagId >> 8) & 0xFF,
                                                    log.stagEncArgs);
                         break;
                     case 3:
                         fileHandler << fmt::format("#define {} \"\\x{:02x}\\x{:02x}\\x{:02x}{}\"\n",
                                                    log.stagNewName,
-                                                   (log.stagId >> 16) & 0xFF,
-                                                   (log.stagId >> 8) & 0xFF,
                                                    (log.stagId) & 0xFF,
+                                                   (log.stagId >> 8) & 0xFF,
+                                                   (log.stagId >> 16) & 0xFF,
                                                    log.stagEncArgs);
                         break;
                 }

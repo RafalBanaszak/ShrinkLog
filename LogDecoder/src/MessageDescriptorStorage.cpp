@@ -10,7 +10,7 @@
 namespace sl {
     using fmt::print;
 
-    const std::regex MessageDescriptorStorage::linePattern{R"#((\d+);([^;]*);(.*$))#", std::regex::optimize};;
+    const std::regex MessageDescriptorStorage::linePattern{R"#((\d+);([^;]*);(.*$))#", std::regex::optimize};
 
     MessageDescriptorStorage::MessageDescriptorStorage(std::filesystem::path path) {
         // possible exception should be handled at the higher abstraction layer

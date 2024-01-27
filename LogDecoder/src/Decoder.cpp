@@ -15,13 +15,24 @@ namespace sl {
 
     using fmt::print;
 
-    Decoder::Decoder(std::unique_ptr<MessageDescriptorStorage> &&messageMap) noexcept:
-            messageMap{std::move(messageMap)} {
+    Decoder::Decoder(std::unique_ptr<MessageDescriptorStorage> &&messageMap) noexcept: messageMap{
+        std::move(messageMap)
+    } {
+        maxMessageIndex = this->messageMap->getMaxIndexNumber();
+        if (maxMessageIndex <= 0xFFU) {
+            messageIndexBytes = 1;
+        } else if (maxMessageIndex <= 0xFFFFU) {
+            messageIndexBytes = 2;
+        } else if (maxMessageIndex <= 0xFFFFFFU) {
+            messageIndexBytes = 3;
+        } else {
+            print(stderr, "The maximum message index is greater than 2^24 - 1 ({}). Indexes must be stored in 3 bytes or fewer.\n", maxMessageIndex);
+            std::terminate();
+        }
     }
 
     std::string Decoder::DecodeTextFormat(TextFile &&logFile) noexcept {
         using Type = ArgEncoder::Type;
-        const auto maxIndex = messageMap->getMaxIndexNumber();
         std::vector<std::string> outputLines;
         std::string::size_type outputLinesSize = 0;
 
@@ -30,12 +41,13 @@ namespace sl {
         while (std::getline(issEncodedLog, logLine)) {
             //Decode index
             auto inputIterator = cbegin(logLine);
-            auto index = hexStringToType<uint32_t>(inputIterator, inputIterator + 2);
+            auto index = hexStringToType<uint32_t>(inputIterator, inputIterator + 2 * messageIndexBytes);
             inputIterator += 2;
 
             //decode args
-            if (index > maxIndex) {
-                return {};
+            if (index > maxMessageIndex) {
+                print(stderr, "The decoded message index is greater than maximum message index({}/{}). The decoding process will be terminated\n", index, maxMessageIndex);
+                std::terminate();
             }
             auto &descriptor = messageMap->GetDescriptor(index);
 
@@ -74,7 +86,8 @@ namespace sl {
                 } else if (chunk.arg.type == Type::EMPTY) {
                     argumentValue = nullptr;
                 } else {
-                    return {};
+                    print(stderr, "Urecognized argument type ({}). The decoding process will be terminated\n", chunk.arg.type);
+                    std::terminate();
                 }
 
                 std::visit([&decodedLine, &chunk](auto &&arg) {

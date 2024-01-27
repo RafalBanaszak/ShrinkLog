@@ -173,7 +173,6 @@ To use the TargetLib the user must also implement the ```void SlogPutchar(char b
 1. **Collect the log**
 
    Run the project and collect the log to a text file.
-   <br><br>
    - [ ] Text file with raw log is collected
      <br><br>
 1. **Decode the log**
@@ -193,9 +192,45 @@ Since ProjectProcessor processes projects relatively quickly, it is recommended 
 that it is automatically executed before each build as a pre-build step.
 
 
-# Tips and tradeoffs 
+# Tips and tradeoffs
 
+- Currently, the project relies on a single "Tags.h" file, which maps "SLOG_xxxxxxx" tags to their encoded values
+  required by the LOG function. Consequently, whenever a log is added or modified, ProjectProcessor updates the "Tags.h"
+  file. Unchanged logs remain unaffected.
+  However, depending on the build toolchain and its configuration, this process may force a rebuild of all source files
+  that include "ShrinkLog."
+  <br><br>
+  Up until now, this issue hasn't been thoroughly investigated. If it proves to be a significant concern, please notify
+  about it by opening an issue.
+  A potential solution could involve generating individual "Tags.h" files for each source file.
+  <br><br>
+- Users need to pay attention to the byte size of positional arguments within the message string when using the LOG
+  function. The LOG arguments are transmitted in binary form, and the LOG function lacks awareness of when a value is
+  limited to a certain range. Consequently, it always sends all possible bytes.
+  Consider the following example: an unsigned integer variable is utilized to iterate in a loop and can hold values in
+  the range [0..9].
 
+   ```c++
+   for (unsigned int i=0; i<10; ++i)
+   {
+     LOG(STAG_unknown, "Loop iter: %u\n", i);
+   }
+   ```
+
+   In this case, the log placeholder is %u. If the unsigned integer is 4 bytes in your system, then 4 bytes will be sent
+   every time, even if the value can be held in 1 byte. A more efficient approach is as follows:
+
+   ```c++
+   for (unsigned int i=0; i<10; ++i)
+   {
+     LOG(STAG_unknown, "Loop iter: %hhu\n", (unsigned char)i); /* The 'hh' prefix signifies a 'short short' data type. */
+   }
+   ```
+   
+   This modification ensures that the value is transferred as a single byte.
+   <br><br>
+- Substrings are supported but not optimized. Every substring is sent byte by byte unlike static LOG messages which are
+  encoded as ID. 
 
 
 

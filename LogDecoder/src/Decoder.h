@@ -13,6 +13,8 @@ namespace sl {
 
     class Decoder {
         std::unique_ptr<MessageDescriptorStorage> messageMap;
+        unsigned maxMessageIndex;
+        unsigned messageIndexBytes;
 
         template<typename T>
         [[nodiscard]] static T hexStringToType(std::string::const_iterator beginIt, std::string::const_iterator endIt);
