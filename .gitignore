@@ -1,6 +1,9 @@
 .idea/
 cmake-*/
 *.ignore
+ExampleProject/*.txt
+ExampleProject/slog/
+ExampleProject/testResults/
 
 # Prerequisites
 *.d
