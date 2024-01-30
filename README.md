@@ -13,7 +13,7 @@ Consider the following example log:
 printf("This is an example log printing a number %hd\n", 1234);
 ```
 
-* Storage: The message ```This is an example log printing a number %hd\n.``` must be stored in memory. 
+* Storage: The string literal ```This is an example log printing a number %hd\n.``` must be stored in memory. 
 It will consume 45 bytes of non-volatile memory. 
 If you have 100 similar logs, you'd need over 4kB of space.
 * Storage (again): The printf function is memory-intensive and can consume a significant amount of non-volatile bytes.
@@ -28,7 +28,7 @@ When using ShinkLog, the log function would look like below:
 LOG(SLOG_jI3O7Y4, "This is an example log printing a number %hd\n", 1234);
 ```
 * The *SLOG_jI3O7Y4* serves as a tag, and users don't need to modify or manage it.
-* The message is stored in memory as 3 bytes instead of 45.
+* The string literal is replaced by a special byte sequence. It consumes 3 bytes instead of 45.
 * It sends arguments using raw binary format - no expensive conversion to string is required.
 * It resembles the printf function and supports **almost all (non-lightweight) printf features**, including floats, size modifiers, paddings, and precision. 
 Its memory footprint is minimal.
@@ -80,7 +80,7 @@ Its memory footprint is minimal.
 ## ProjectProcessor
 The ProjectProcessor is a tool that processes the source code of the project. It performs the following steps:
 1. Checks all the project files and finds *LOG* functions. 
-1. Analyzes messages and their arguments. Every log is encoded as a special sequence which will instruct the *LOG* function during runtime how to send a log.
+1. Analyzes string literals and their arguments. Every message is encoded as a special sequence which will instruct the *LOG* function during runtime how to send a log.
 1. For every special sequence a new tag is generated. The old tags inside *LOG* functions are replaced with the new generated tags (only when a message changed).
 1. The ProjectProcessor generates a header file with all the tags and their corresponding special sequences.
 1. The ProjectProcessor generates a map file which is used by the LogDecoder to decode the raw logs.
@@ -229,8 +229,8 @@ that it is automatically executed before each build as a pre-build step.
    
    This modification ensures that the value is transferred as a single byte.
    <br><br>
-- Substrings are supported but not optimized. Every substring is sent byte by byte unlike static LOG messages which are
-  encoded as ID. 
+- Substrings are supported but not optimized. Every substring is sent byte by byte unlike static LOG string literals which are
+  encoded as IDs.
 
 
 
