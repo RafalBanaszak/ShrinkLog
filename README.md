@@ -1,7 +1,7 @@
 # ShrinkLog
 ShrinkLog is a set of tools designed to enable logging on small targets, such as microcontrollers. 
 Its main features include:
-* reducing the footprint of log messages in non-volatile memory
+* reducing the footprint of string literals in non-volatile memory
 * minimizing the footprint of the printf function in non-volatile memory
 * lowering the overhead of printf-like formatting during runtime
 * reducing the size of messages sent through interfaces like UART
