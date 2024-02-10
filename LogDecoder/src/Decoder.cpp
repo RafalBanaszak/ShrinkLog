@@ -104,7 +104,7 @@ namespace sl {
                 } else if (chunk.arg.type == Type::EMPTY) {
                     argumentValue = nullptr;
                 } else {
-                    print(stderr, "Urecognized argument type ({}). The decoding process will be terminated\n", chunk.arg.type);
+                    print(stderr, "Urecognized argument typei({}). The decoding process will be terminated\n", static_cast<char>(chunk.arg.type));
                     std::terminate();
                 }
 
